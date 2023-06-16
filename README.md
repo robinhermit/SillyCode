@@ -1,3 +1,4 @@
 # SillyCode
 ## live-coding interface for real-time text sonification
-currently works in Italian only
+This version of SillyCode works with any Pyphen language: https://pypi.org/project/pyphen/ 
+
