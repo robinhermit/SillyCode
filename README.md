@@ -13,8 +13,11 @@ The basic structure and functionalities of SillyCode can be represented as follo
 </picture>
 
 ## Requirements
-For this version you'll need SuperCollider, Python and Pyphen installed.
+For this version you will need SuperCollider installed.
 If you haven't already, download and install SuperCollider: https://supercollider.github.io/
-Then 
-Then, install Pyphen by running `pip install pyphen` on your terminal.
 
+You will also need Python installed, and pip: `pip install pip`
+
+Finally, install Pyphen by running `pip install pyphen` on your terminal.
+
+## Requirements
