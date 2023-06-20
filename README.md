@@ -20,4 +20,8 @@ You will also need Python installed, and pip: `pip install pip`
 
 Finally, install Pyphen by running `pip install pyphen` on your terminal.
 
-## Requirements
+## Instructions
+Download this repository as zip file, unzip it in a known location and keep the content of the folder within it. To launch SillyCode, open the file SILLYCODE.scd. Open the sillycode_CONTROL.scd as well.
+
+You will need to collect 2000-5000 audio wave files, inside the folder /Samples. The more, the better resolution will
+
