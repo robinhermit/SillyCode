@@ -1,3 +1,6 @@
+Server.default.options.device = "Built-in Output";
+s.reboot;
+Server.killAll;
 (
 // SILLABATORE
 /*
@@ -5,7 +8,13 @@ Server
 Server.default.options.device = "BlackHole 2ch";
 Server.default.options.device = "Built-in Output";
 */
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// compara le sillabe generate con elenco di tutte le sillabe
+// se sono incluse, allora
+
+
 // I N I Z I A L I Z Z A //////////////////////////////////////
 /////////////////////////////////////////////////7
 
@@ -22,6 +31,30 @@ merged = CSVFileReader.read(thisProcess.nowExecutingPath.dirname+/+"merged_files
 unique = CSVFileReader.read(thisProcess.nowExecutingPath.dirname+/+"tuttesillabe_norep_list.csv", true, true);
 ~unique = unique.flatten;
 ">>>>> 50 % >>>>>>>>>>>> Unique-syllables array: ready.".postln;
+
+
+// create Pyphen parsing function ~get_sylabs
+// ricordati di addare il percorso file come directory specificabile da user
+
+~get_sylabs = {|language, input|
+	format(
+		// check python path! otherwise unixCmdGetStdOut won't work
+		"/opt/miniconda3/bin/python.app -c \"import pyphen; out = pyphen.Pyphen(left=1, right=1, lang='%').inserted('%'); print(out)\"",
+		language, input
+	).unixCmdGetStdOut.split($-)
+};
+
+">>>>> 75 % >>>>>>>>>>>> Parsing function: ready.".postln;
+
+// fake stringa di test
+~stringa = "Questo testo qua, come esempio";
+// inizializza con italiano
+//~language= "it_IT";
+~language= "en_EN";
+
+
+	/*
+
 
 // these functions make it look like a paper dictionary (look letter 1, then letter 2 etc.)
 ~makeDict = { arg stringPairs;
@@ -61,21 +94,28 @@ unique = CSVFileReader.read(thisProcess.nowExecutingPath.dirname+/+"tuttesillabe
 	level.tryPerform(\at, \hyphenation)
 };
 ">>>>>> 75 % >>>>>>>>>>> Vocabulary function.".postln;
+
+	*/
 };
 
 //////////////////////
 
 ~bb = {
 // this takes a few seconds
+		/*
 d = ~makeDict.(~merged); ">>>>>> 100 % >>>>>>>>>>>>> Association words-syllables formed".postln;
+		*/
+
+
 };
 
 
 ~cc = {
 // ready to go! now you only have to insert a word here as string. if it doesn't exist, it'll print nil, otherwise it'll print the correct hyphenation
-var testrun;
-testrun = ~matchString.(d, "cangiante");
-if(testrun.isNil.not, {"prova, prova, sa, sa, uno due".postln});
+x = ~get_sylabs.(~language, ~stringa).do(_.postln);
+if(x.isNil.not, {">>>>> 100 % >>>>>>>>>>>> Association confirmed".postln;
+				 x.postln;
+	});
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -87,6 +127,8 @@ if(testrun.isNil.not, {"prova, prova, sa, sa, uno due".postln});
 /////////////////////////////////////////////////
 
 ~dd = {
+//Server.default.options.device = "BlackHole 2ch";
+//Server.default.options.device = "Built-in Output";
 s.options.numBuffers = 6000; // then reboot to save the changees
 s.reboot;
 
@@ -119,7 +161,7 @@ SynthDef(\playbuf_test_mono, {
 	bufscale = BufRateScale.ir(buf);
 	attack = atk.clip(0.005, bufdur-(bufdur/10));
 	release = rel.clip(0.1, 5);
-	sig = PlayBuf.ar(1, buf, bufscale* rate, t_trig, start, doneAction: da);
+	sig = PlayBuf.ar(1, buf, bufscale * rate, t_trig, start, doneAction: da);
 	env = EnvGen.ar(Env.asr(attack, 1, release, -6), t_trig, doneAction: da);
 	sig = sig * env;
 	sig = sig * amp;
@@ -142,58 +184,11 @@ SynthDef(\playbuf_test_stereo, {
 	sig = sig * amp;
 	Out.ar(out,sig!2);
 }).add;
-}
+};
 };
 //////////////////////////////////////////////////////////////////////////////////////////////7
-
-
-Synth(\click); // audio test
-Synth.new(\playbuf_test_stereo, [\buf, ~sounds[(0..1084).choose].bufnum, \rate, (1..12).choose.midiratio]);
-
-
 /*
-// CURRENT PDEFS
-(
-
-Pdef.clear; Pdef.removeAll;
-
-// per inizializzare
-
-Pdef(\click_pdef, Pbind(
-	\instrument, \click,
-	\dur, Pdefn(\dur, Pseq([2], inf)),
-)).play;
-
-Pdef(\playbuf_pdef, Pbind(
-	\instrument, \playbuf_test_stereo,
-	\dur, Pseq([2],inf),
-	\stretch, ~stretch,
-	\buf, Prand(~sounds[7..12], inf),
-	\rate, 1
-)).play(quant:~stretch);
-)
-
-// per cambiare parametri mantenendo quant
-
-(
-~rate = 1;
-
-Pdef(\playbuf_1).play;
-Pdef(\playbuf_2).play;
-Pdef(\playbuf_3).play;
-Pdef(\playbuf_4).play;
-Pdef(\playbuf_5).play;
-Pdef(\playbuf_6).play;
-Pdef(\playbuf_7).play;
-Pdef(\playbuf_8).play;
-Pdef(\playbuf_9).play;
-Pdef(\playbuf_0).play;
-
-)
-*/
-
-/*
-// SELEZIONA MODO
+// SPIEGAZIONE MODO
 
 // 0 => Lettera-centrico: ogni sillaba dura 1 beat; ogni parola è una battuta di n beat = numero beats (sillabe), e ogni verso è una frase di lunghezza m = numero battute (parole). Ogni lettera nella sillaba è una frazione di un beat; tutte le sillabe di una parola sono di uguale durata, e dunque ciascuna lettera dura 1 (lunghezza beat) fratto numero di lettere. Esempio:
 // "Esempio, questa stringa" would be (1+1+1), (1+1), (1+1) beats long = 7/4 signature. In the first word there are 3 sillables (1+1+1) and they have respectively 1,3 and 3 letters each. this means that the beats of this words would be divided as
@@ -224,9 +219,23 @@ DURATA SILLABA in relazione a numero di lettere (∂ = lettera generica)
 // G U I   F U N C T I O N S //////////////////////////////////////
 /////////////////////////////////////////////////7
 
-~ee = {// launch only once
-// launch GUI
+~ee = {
+
+if( // SALVATAGGIO AUTOMATICO DEL TESTO SE C'è QUALCOSA DI SCRITTO
+	t.notNil,
+	{
+		var file,date;
+		date = Date.getDate.format("%Y%m%d_%H%M");
+		file = File.new(thisProcess.nowExecutingPath.dirname+/+"Saved"+/+"SillyCode_"++date++".txt", "w");
+		file.write(t.string.asString);
+		file.close;
+		"testo salvato".postln;
+	},
+		{"testo vuoto".postln}
+);
+
 //
+
 Pdef(\playbuf_1, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).play(quant:~stretch);
 Pdef(\playbuf_2, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).play(quant:~stretch);
 Pdef(\playbuf_3, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).play(quant:~stretch);
@@ -238,18 +247,6 @@ Pdef(\playbuf_8, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).play(quant:~
 Pdef(\playbuf_9, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).play(quant:~stretch);
 Pdef(\playbuf_0, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).play(quant:~stretch);
 
-if( // SALVATAGGIO AUTOMATICO DEL TESTO SE C'è QUALCOSA DI SCRITTO
-	t.string.notEmpty && t.string.notNil,
-	{
-		var file,date;
-		date = Date.getDate.format("%Y%m%d_%H%M");
-		file = File.new(thisProcess.nowExecutingPath.dirname+/+"Saved"+/+"SillyCode_"++date++".txt", "w");
-		file.write(t.string.asString);
-		file.close;
-		"testo salvato".postln;
-	},
-	{}
-);
 
 // resetta parametri Side Quest
 ~fattore_tempo = 1; ~tFact=1;
@@ -275,12 +272,22 @@ Pdef(\playbuf_pdef, Pbind(
 	\rate, Pdefn(\rate, Pseq([~rate], inf)),
 )).play(quant: ~stretch);
 */
+Pdef(\playbuf_1, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_2, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_3, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_4, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_5, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_6, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_7, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_8, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_9, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
+Pdef(\playbuf_0, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).stop(quant:~stretch);
 
 Window.closeAll;
 //Tdef(\checkLoop).stop;
 w = Window.new("SillyCode", Rect(0,0,width: (Window.screenBounds.width/2)+20,height: Window.screenBounds.height)).front;
-z = PdefAllGui(20);
-
+z = PdefAllGui(11);
+s.meter;
 
 //~numeroCorrente = 1; // resetta pattern to defaule (1)
 
@@ -291,12 +298,19 @@ z = PdefAllGui(20);
 ~sideQuest = 0;
 ~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
 ~lista_indici = []; // resetta array sequenza di simboli
+
+~used_syl = []; // reset list of encountered syllables (each new one is stored once)
+~assignable_samples = (0..~sounds.size).asSet;
+~cached_pairs = Dictionary.new(~sounds.size); // reset dictionary
+"cached pairs dictionary has been restored to default (empty)".postln;
+
+
 "RESET".postln;
 
-t = TextView(w.asView,Rect(10,10, Window.screenBounds.width/2,Window.screenBounds.height-70))
+t = TextView(w.asView,Rect(10,10, Window.screenBounds.width/2,Window.screenBounds.height-60))
     .focus(true)
 	.palette_(QPalette.dark)
-	.font_(Font("Courier",25), 5, 10)
+	.font_(Font("Courier",40), 5, 10)
 	.hasVerticalScroller_(true);
 // characters allowed in a binary operator: "!@%&*-+=|<>?/".
 // keyboard functions
@@ -308,6 +322,12 @@ t.keyDownAction =
 
 	{49} // BARRA SPAZIATRICE
 	{
+		if(~sideQuest==0 && ~currentLine.isNumber.not, {
+
+
+
+
+
 		~parolaDurate = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
 		~indici_parola = [];
 
@@ -318,7 +338,8 @@ t.keyDownAction =
 
 		~currentLine = [t.currentLine.toLower
 			.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:)
-			.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $().reject(_ == $))
+			.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $().reject(_ == $)).reject(_ == $+)
+			.reject(_ == $|).reject(_ == $>)
 			.split($ )].flatten; // dividi linea in parole
 
 		// updata numeroCorrente ogni volta che premi spazio
@@ -326,20 +347,40 @@ t.keyDownAction =
 			arg i;
 			if(
 				t.currentLine[i].asString.interpret.isNumber,
-				{~numeroCorrente=t.currentLine[0]},
+				{~numeroCorrente=t.currentLine[i];
+				 ~currentLine.removeAt(i)
+				},
 				{}
 			);
 		};
-
-		~currentLine_wordsnum = ~currentLine.flatten.size; // numero parole nella riga
+		~currentLine_wordsnum = ~currentLine.flatten.reject(_.isNumber).size; // numero parole nella riga
 		~lastWord = ~currentLine[~currentLine.size-1].asString; // prendi l'ultima parola
 
 		if( // se l'ultima parola non è nil, trasformala in sequenza, altrimenti ignorala
-			~lastWord.notNil,
+			(~lastWord != "nil") && (~lastWord.isNumber.not),
+
 			{
-				~currentWord_syllables = ~matchString.(d, ~lastWord)
+// DA QUI SUBENTRA PYPHEN.
+// DIVIDI IN SILLABE.
+	// RICAVA DURATE PER ARRAY DURATE
+// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
+	// SE LA SILLABA È GIÀ STATA USATA, RETRIEVE IL SAMPLE CORRISPONDENTE
+	// ALTRIMENTI, CREA NUOVA ASSOCIAZIONE RANDOM SILLABA-SAMPLE E PIAZZALA COME REFERENCE IN ELENCO SILLABE USATE PER SALTARE QUESTO PASSAGGIO TUTTE LE VOLTE IN CUI LA SILLABA RICOMPARE
+
+
+
+
+			// DIVIDI IN SILLABE.
+				~currentWord_syllables = ~get_sylabs.(~language, ~lastWord)
 				.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:)
-				.reject(_ == $?).reject(_ == $/).reject(_ == $@).split($-);// dividila in sillabe
+				.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $\t ).reject(_.isNumber)/*.split($-)*/;// dividila in sillabe;
+
+
+				// correct Pyphen string: last syllable always has a fucking additional
+				// character at the end (tried deleting it with reject $\n , $_ , $  , $\t , it doesn't work.
+				// parse the last syllable and remove the last element)
+				~sillaba_incriminata = ~currentWord_syllables[~currentWord_syllables.size-1];
+				~sillaba_incriminata.removeAt(~sillaba_incriminata.size-1);
 
 				~currentWord_syllables.postln; // postala sillabazione della parola
 
@@ -358,16 +399,42 @@ t.keyDownAction =
 					// depending on modeselector, decidi come rappresentare sillabe
 					switchMode = ~modeSelector.value; // local modeSelector proxy
 
-					//switch
+//>>>>>>>>   		//switch
 					passSwitch = switch (switchMode)
 
 					{0} // Lettera-centrico
-					{ // per ogni lettera nella sillaba
+					{ /*
+						// "salva" la corrente sillaba nell'elenco di sillabe usate
+						~used_syl = ~used_syl.add(~currentWord_syllables.at(i));
+						~used_syl = ~used_syl.asSet.asArray.sort; // rimuovi repetitions
+						*/
+						// se la sillaba è nuova..
+/*						if(
+							~cached_pairs.keys.asArray.includesEqual(~currentWord_syllables.at(i).asString).not,
+							{//.. salva una nuova associazione nel dizionario cached_pairs
+
+							 // sample picked random from the assignable set
+							 ~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+							 // crea associazione sillaba corrente (nuova)
+							 ~cached_pairs = ~cached_pairs.put(
+											~currentWord_syllables.at(i).asString,
+											~bingo_sample_num);
+							 // finally, remove the random picked sample number from the set of assignable samples;
+							 ~assignable_samples.remove(~bingo_sample_num);
+
+
+							 },
+							{}
+						);
+*/
+
+						// per ogni lettera nella sillaba
 						~lettere_inSillaba.do{ // per ogni lettera, metti in array di durate
 							arg j;
 							~sillabaDurate = ~sillabaDurate.insert(j, (1/(~lettere_inSillaba*4)).round(0.0001));
 						};
 
+	// RICAVA DURATE PER ARRAY DURATE
 
 
 						if(	// se è ultima istanza, selezionala per durate
@@ -376,8 +443,50 @@ t.keyDownAction =
 							{
 								~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
 
+// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
+
 								// prepara anche array di buffers
 								// checka sillabe all'interno dell'array "unique", per cioccare l'indice
+								if( // se hai una nuova sillaba..
+									~cached_pairs.keys.asArray
+												 .includesEqual(~currentWord_syllables.at(i).asString)
+												 .not,
+									{//.. salva una nuova associazione nel dizionario cached_pairs
+
+									 // sample picked random from the assignable set
+									 ~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+									 // crea associazione sillaba corrente (nuova)
+									 ~cached_pairs = ~cached_pairs.put(
+													~currentWord_syllables.at(i).asString,
+													~bingo_sample_num);
+									 // finally, remove the random picked sample number from the set of assignable samples;
+									 ~assignable_samples.remove(~bingo_sample_num);
+									 "nuova sillaba aggiunta".postln;
+
+									 // operazioni per array buffers:
+									 ~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+									 ~moltiplica_indice_copie = Array.fill(
+											~lettere_inSillaba, {~indice_sillaba}
+									 );
+									 ~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+									},
+								    { // se invece hai già incontrato quella sillaba, parsa il value corrispondente
+									 if(
+										~cached_pairs.keys.asArray
+													 .includesEqual(~currentWord_syllables.at(i).asString),
+										{
+														// stessa roba diocan?
+										 ~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+										 ~moltiplica_indice_copie = Array.fill(
+												~lettere_inSillaba, {~indice_sillaba});
+										~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+										},
+										{"uopssss....".postln}
+									 );
+									}
+								);
+
+									/*
 								~now = ~currentWord_syllables.at(i).asString;
 								if(
 									~unique.includesEqual(~now),
@@ -397,31 +506,69 @@ t.keyDownAction =
 									},
 									{"sconosciuta".postln}
 								);
+										*/
 							},
 						);
 					}
 
+	// RICAVA DURATE PER ARRAY DURATE
+
 					{1} // Sillaba-centrico
-					{ // essenzialmente mette solo un valore di durata denetro sillabaDurate
+					{/*
+						// "salva" la corrente sillaba nell'elenco di sillabe usate
+						~used_syl = ~used_syl.add(~currentWord_syllables.at(i));
+						~used_syl.asSet.asArray.sort; // rimuovi repetitions
+*/
+
+						// essenzialmente mette solo un valore di durata denetro sillabaDurate
 						~sillabaDurate = ~sillabaDurate.add(~lettere_inSillaba*0.125);
 						~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
 					//////////////////////////////////////////////////////////////////////
+
+// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
+
 					// prepara anche array di buffers
 					// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-						~now = ~currentWord_syllables.at(i).asString;
-						if( // se la sillaba corrente esiste,
-							~unique.includesEqual(~now),
-							{
-								"riconosciuta".postln;
-								~indice_sillaba = ~unique.detectIndex({ arg item, i; item == ~now});
+						//~now = ~currentWord_syllables.at(i).asString;
+								if( // se hai una nuova sillaba..
+									~cached_pairs.keys.asArray
+												 .includesEqual(~currentWord_syllables.at(i).asString)
+												 .not,
+									{//.. salva una nuova associazione nel dizionario cached_pairs
 
-								~lista_SILLABE_USATE = ~sillabe_assegnabili.asSet.asArray.sort;// < < < ignora
+									 // sample picked random from the assignable set
+									 ~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+									 // crea associazione sillaba corrente (nuova)
+									 ~cached_pairs = ~cached_pairs.put(
+													~currentWord_syllables.at(i).asString,
+													~bingo_sample_num);
+									 // finally, remove the random picked sample number from the set of assignable samples;
+									 ~assignable_samples.remove(~bingo_sample_num);
+									 "nuova sillaba aggiunta".postln;
 
-								// qui per creare sequenza letterale (con ripetizioni), per esempio per bufnum
-								~lista_indici = ~sillabe_assegnabili.flatten;
-							},
-							{"silaba sconosciuta".postln;}
-						);
+									 // operazioni per array buffers:
+									 ~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+									 ~moltiplica_indice_copie = Array.fill(
+											~lettere_inSillaba, {~indice_sillaba}
+									 );
+									 ~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+									},
+								    { // se invece hai già incontrato quella sillaba, parsa il value corrispondente
+									 if(
+										~cached_pairs.keys.asArray
+													 .includesEqual(~currentWord_syllables.at(i).asString),
+										{
+														// stessa roba diocan?
+										 ~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+										 ~moltiplica_indice_copie = Array.fill(
+												~lettere_inSillaba, {~indice_sillaba});
+										~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+										},
+										{"uopssss....".postln}
+									 );
+									}
+								);
+
 
 					}
 					{} {};
@@ -444,6 +591,8 @@ t.keyDownAction =
 		);
 		~durataLinea.postln;
 		~durataLinea = ~durataLinea++~punct_cache; //aggiungi eventuali rest (punteggiatura) nella cache
+	}, { }
+	);
 
 	}
 
@@ -494,7 +643,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_1, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf).trace,
@@ -510,7 +660,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_2, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf).trace,
@@ -525,7 +676,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_3, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -540,7 +692,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_4, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -555,7 +708,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_5, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -569,7 +723,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_6, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -584,7 +739,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_7, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -599,7 +755,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_8, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -614,7 +771,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_9, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -629,7 +787,8 @@ t.keyDownAction =
 			stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1; attack=~attack; release=~release; rate=~rate;
 
 			Pdef(\playbuf_0, Pbind(
-				\instrument, \playbuf_test_stereo,
+				\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+						{\playbuf_test_mono} {\playbuf_test_stereo}},
 				\stretch, stretch,
 				\dur, Pseq(durataLinea, inf),
 				\buf, Pseq(sequence_type_1, inf),
@@ -698,6 +857,7 @@ t.keyDownAction =
 		~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
 		~lista_indici = []; // resetta array sequenza di simboli
 		~sequence_type_1 = [];
+		~punct_cache = [];
 		"RESET".postln;
 	}
 
@@ -741,7 +901,7 @@ t.keyDownAction =
 			{
 				//p.play; // click sound
 
-				q.play; // sampler
+				//q.play; // sampler
 				//Pdef(\playbuf_pdef).play;
 				~pdefs_play = switch
 				(~numeroCorrente.value.asString.asInteger)
@@ -768,9 +928,6 @@ t.keyDownAction =
 	{
 	if(modifiers == 131072,
 		{
-			//p.stop; // click sound
-			//q.stop; // sampler
-			//Pdef(\playbuf_pdef).stop;
 
 			// se premi STOP con un NUMERO prima, stoppa
 			// Pdef(\playbuf_++NUMERO.asString)
@@ -812,47 +969,8 @@ t.keyDownAction =
 					}
 				);
 			};
-
-/*
-
-			t.currentLine.size.do{
-				arg i;
-				if(
-					t.currentLine[i].asString.interpret.isNumber,
-					{
-						~numeroCorrente = t.currentLine[i];
-						~numeroCorrente.postln;
-						~pdefs_choice = switch
-						(~numeroCorrente.value.asString.asInteger)
-						{1} {Pdef(\playbuf_1).stop;}
-						{2} {Pdef(\playbuf_2).stop;}
-						{3} {Pdef(\playbuf_3).stop;}
-						{4} {Pdef(\playbuf_4).stop;}
-						{5} {Pdef(\playbuf_5).stop;}
-						{6} {Pdef(\playbuf_6).stop;}
-						{7} {Pdef(\playbuf_7).stop;}
-						{8} {Pdef(\playbuf_8).stop;}
-						{9} {Pdef(\playbuf_9).stop;}
-						{0} {Pdef(\playbuf_0).stop;};
-					},
-					{
-						Pdef(\playbuf_1).stop;
-						Pdef(\playbuf_2).stop;
-						Pdef(\playbuf_3).stop;
-						Pdef(\playbuf_4).stop;
-						Pdef(\playbuf_5).stop;
-						Pdef(\playbuf_6).stop;
-						Pdef(\playbuf_7).stop;
-						Pdef(\playbuf_8).stop;
-						Pdef(\playbuf_9).stop;
-						Pdef(\playbuf_0).stop;
-					}
-					);
-				};
-*/
-				"STOP|".postln;
+			"STOP|".postln;
 			},
-
 		);
 	}
 
@@ -892,7 +1010,7 @@ t.keyDownAction =
 					if(
 						~unique.includesEqual(~now),
 						{// costruisci array di bufnums
-							"riconosciuta".postln;
+							"riconosciuta mode 0".postln;
 							~indice_sillaba = ~unique.detectIndex({ arg item, i;
 								item == ~now});
 							~moltiplica_indice_copie = Array.fill(
@@ -929,7 +1047,7 @@ t.keyDownAction =
 					if( // se la sillaba corrente esiste,
 						~unique.includesEqual(~now),
 						{
-							"riconosciuta".postln;
+							"riconosciuta mode 1".postln;
 							~indice_sillaba = ~unique.detectIndex({ arg item, i;
 								item == ~now});
 							// qui per creare sequenza letterale (con ripetizioni), per esempio per bufnum
