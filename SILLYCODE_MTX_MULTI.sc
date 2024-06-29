@@ -44,8 +44,8 @@ SerialPort.closeAll;
 
 	// server operations
 
-	//Server.default.options.device = "BlackHole 2ch";
-	Server.default.options.device = "Scarlett 18i20 USB";
+	Server.default.options.device = "BlackHole 2ch";
+	//Server.default.options.device = "Scarlett 18i20 USB";
 	//Server.default.options.inDevice = "Built-in Input";
 	//Server.default.options.outDevice = "Built-in Output";
 	Server.default.options.sampleRate = 44100;
@@ -366,11 +366,11 @@ SerialPort.closeAll;
 
 	scale = 60; // resize matrix window
 	trig_threshold = 0.1; // thresh detection on matrix (0-1)
-	range_min = 10; // min sensor value mapped
-	range_max = 600; // max sensor value mapped
+	range_min = 150; // min sensor value mapped
+	range_max = 400; // max sensor value mapped
 
 	columns = 15; // number of columns (to digital pins)
-	rows = 13; // number of rows (to analog pins)
+	rows = 14; // number of rows (to analog pins)
 
 	// initialise tasks and serial port
 	Tdef(\readSerial).stop;
@@ -433,7 +433,7 @@ SerialPort.closeAll;
 		{
 			var file,date;
 			date = Date.getDate.format("%Y%m%d_%H%M");
-			file = File.new(thisProcess.nowExecutingPath.dirname+/+"Saved"+/+"SillyCode_matrix_"++date++".txt", "w");
+			file = File.new(thisProcess.nowExecutingPath.dirname+/+"Saved"+/+"SillyCode_sweater"++date++".txt", "w");
 			file.write(t.string.asString);
 			file.close;
 			"testo salvato".postln;
@@ -441,7 +441,7 @@ SerialPort.closeAll;
 		{"testo vuoto".postln}
 	);
 
-	//
+
 
 	// resetta parametri temporali, crea tempoclock
 	~tempo = 120; ~bpm=120;
@@ -529,6 +529,52 @@ SerialPort.closeAll;
 		}
 	};
 
+	~subRes = Array.new(200);
+
+	~res.do({
+		arg item, i;
+		if(
+			(item.asInteger) < 1000,
+			{
+				~subRes.add([i, item])
+			}
+		);
+	});  // 32 channels?
+	// 12 front
+	// 9 back
+	// 12 right
+	// 8 left
+
+	Tdef(\sweater, {
+		loop{
+
+			~subRes = Array.new(200);
+
+			~res.do({
+				arg item, i;
+				if(
+					(item.asInteger) < 900,
+					{
+						~subRes.add([i, item])
+					}
+				);
+			});  // 32 channels?
+			// 12 front
+			// 9 back
+			// 12 right
+			// 8 left
+			~sect1 = ~subRes[0..(~subRes.size/3).round.asInteger];
+			~sect2 = ~subRes[(((~subRes.size/3).round.asInteger)+1)..((~subRes.size/3)+(~subRes.size/4)).round.asInteger];
+			~sect3 = ~subRes[(((~subRes.size/3)+(~subRes.size/4)).round.asInteger+1)..((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)).round.asInteger];
+			~sect4 = ~subRes[(((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)).round.asInteger+1)..((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)+(~subRes.size/6)).round.asInteger];
+
+			if(
+				((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)+(~subRes.size/7)).round.asInteger < ~subRes.size,
+				{~sec_remain = ~subRes[((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)+(~subRes.size/7)).round.asInteger+1..~subRes.size-1]},
+				{~sec_remain=nil}
+			);
+			0.1.wait;
+	}}).play(AppClock);
 
 	// this task updates the GUI at 20ms rate (slower than arduino readings)
 	Tdef(\colorControl, {
@@ -538,7 +584,8 @@ SerialPort.closeAll;
 			col_L, col_R, col_l, col_r,
 			speaker1, speaker2, speaker3, speaker4,
 			sp1_avg, sp2_avg, sp3_avg, sp4_avg,
-			grain_duration, ratescale;
+			grain_duration, ratescale,
+			sweater_scale;
 			var coor_coll = [];
 			~coor_coll = nil;
 
@@ -575,7 +622,9 @@ SerialPort.closeAll;
 					speaker4 = Array.fill(10, 0);
 					sp4_avg = speaker4;
 
-				}, { // se outs diverso da stereo,  (deve essere 4..)
+				}, {
+
+					// se outs diverso da stereo,  (deve essere 4..)
 					speaker1 = col_L.collect{
 							arg item, i;
 							item.asFloat.linlin(range_min, range_max, 0.70, 0);
@@ -607,163 +656,292 @@ SerialPort.closeAll;
 					sp4_avg = speaker4.sum / rows;
 
 				}
+
 			);
+
+			~sect1_loaded = Array.new(20);
+			~sect1.do{
+				arg item, i;
+				~sect1_loaded.add(item[1]);
+			};
+			~sect1_loaded = ~sect1_loaded++Array.fill(10-~sect1.size, range_max);
+
+			~sect2_loaded = Array.new(20);
+			~sect2.do{
+				arg item, i;
+				~sect2_loaded.add(item[1]);
+			};
+			~sect2_loaded = ~sect2_loaded++Array.fill(10-~sect2.size, range_max);
+
+			~sect3_loaded = Array.new(20);
+			~sect3.do{
+				arg item, i;
+				~sect3_loaded.add(item[1]);
+			};
+			~sect3_loaded = ~sect3_loaded++Array.fill(10-~sect3.size, range_max);
+
+			~sect4_loaded = Array.new(20);
+			~sect4.do{
+				arg item, i;
+				~sect4_loaded.add(item[1]);
+			};
+			~sect4_loaded = ~sect4_loaded++Array.fill(10-~sect4.size, range_max);
+
+
 
 			// set grainamt by groups
-			~group1.set(\grainAmt, ~res[(rows*3)-3].asFloat.linlin(range_min,range_max, 1,0));
-			~group2.set(\grainAmt, ~res[(rows*3)-2].asFloat.linlin(range_min,range_max, 1,0));
-			~group3.set(\grainAmt, ~res[(rows*3)-1].asFloat.linlin(range_min,range_max, 1,0));
+			if(
+				(~sec_remain.isNil.not)&&(~sec_remain.size >= 3),
+				{
 
+					~group1.set(\grainAmt, ~sec_remain[0][1].asFloat.linlin(range_min,range_max, 1,0));
+					~group2.set(\grainAmt, ~sec_remain[1][1].asFloat.linlin(range_min,range_max, 1,0));
+					~group3.set(\grainAmt, ~sec_remain[2][1].asFloat.linlin(range_min,range_max, 1,0));
 
-			~ch0.set(
-				\lowcut, ~res[0].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[rows*2].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[0],
-				\sp2_amt, speaker2[0],
-				\sp3_amt, speaker3[0],
-				\sp4_amt, speaker4[0],
-			);
+					~ch0.set(
+						\lowcut, ~res[0].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[0].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect3_loaded[0].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[0].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[0].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[0],
+						\sp2_amt, speaker2[0],
+					);
 
-			~ch1.set(
-				\lowcut, ~res[1].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut,~res[(~res.size-rows)+1].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+1].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+1].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+1].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+1].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[1],
-				\sp2_amt, speaker2[1],
-				\sp3_amt, speaker3[1],
-				\sp4_amt, speaker4[1],
-			);
+					~ch1.set(
+						\lowcut, ~res[1].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut,~sect2_loaded[1].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+1].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect3_loaded[1].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[1].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[1].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[1],
+						\sp2_amt, speaker2[1],
+					);
 
-			~ch2.set(
-				\lowcut, ~res[2].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+2].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+2].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+2].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+2].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+2].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[2],
-				\sp2_amt, speaker2[2],
-				\sp3_amt, speaker3[2],
-				\sp4_amt, speaker4[2],
-			);
+					~ch2.set(
+						\lowcut, ~res[2].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[2].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+2].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect3_loaded[2].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[2].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[2].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[2],
+						\sp2_amt, speaker2[2],
+					);
 
-			~ch3.set(
-				\lowcut, ~res[3].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+3].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+3].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+3].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+3].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+3].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[3],
-				\sp2_amt, speaker2[3],
-				\sp3_amt, speaker3[3],
-				\sp4_amt, speaker4[3],
-			);
+					~ch3.set(
+						\lowcut, ~res[3].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[3].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+3].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect3_loaded[3].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[3].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[3].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[3],
+						\sp2_amt, speaker2[3],
+					);
 
-			~ch4.set(
-				\lowcut, ~res[4].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+4].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+4].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+4].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+4].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+4].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[4],
-				\sp2_amt, speaker2[4],
-				\sp3_amt, speaker3[4],
-				\sp4_amt, speaker4[4],
-			);
+					~ch4.set(
+						\lowcut, ~res[4].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[4].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+4].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect3_loaded[4].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[4].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[4].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[4],
+						\sp2_amt, speaker2[4],
+					);
 
-			~ch5.set(
-				\lowcut, ~res[5].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+5].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+5].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+5].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+5].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+5].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[5],
-				\sp2_amt, speaker2[5],
-				\sp3_amt, speaker3[5],
-				\sp4_amt, speaker4[5],
-			);
+					~ch5.set(
+						\lowcut, ~res[5].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[5].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+5].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect4_loaded[0].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[5].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[5].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[5],
+						\sp2_amt, speaker2[5],
+					);
 
-			~ch6.set(
-				\lowcut, ~res[6].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+6].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+6].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+6].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+6].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+6].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[6],
-				\sp2_amt, speaker2[6],
-				\sp3_amt, speaker3[6],
-				\sp4_amt, speaker4[6],
-			);
+					~ch6.set(
+						\lowcut, ~res[6].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[6].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+6].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect4_loaded[1].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[6].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[6].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[6],
+						\sp2_amt, speaker2[6],
+					);
 
-			~ch7.set(
-				\lowcut, ~res[7].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+7].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+7].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+7].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+7].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+7].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[7],
-				\sp2_amt, speaker2[7],
-				\sp3_amt, speaker3[7],
-				\sp4_amt, speaker4[7],
-			);
+					~ch7.set(
+						\lowcut, ~res[7].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[7].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+7].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect4_loaded[2].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[7].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[7].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[7],
+						\sp2_amt, speaker2[7],
+					);
 
-			~ch8.set(
-				\lowcut, ~res[8].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+8].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+8].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+8].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+8].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+8].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[8],
-				\sp2_amt, speaker2[8],
-				\sp3_amt, speaker3[8],
-				\sp4_amt, speaker4[8],
-			);
+					~ch8.set(
+						\lowcut, ~res[8].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[8].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+8].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~sect4_loaded[3].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[8].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[8].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[8],
+						\sp2_amt, speaker2[8],
+					);
 
-			~ch9.set(
-				\lowcut, ~res[9].asFloat.linlin(range_min, range_max, 2000,20),
-				\hicut, ~res[(~res.size-rows)+9].asFloat.linlin(range_min, range_max, 2100,15000),
-				\fsAmt, ~res[threeQuarters+9].asFloat.linlin(range_min, range_max, 1,0),
-				\crushAmt, ~res[(rows*2)+9].asFloat.linlin(range_min, range_max, 0.5,0),
-				\revAmt, ~res[middleRow+9].asFloat.linlin(range_min, range_max, 0.8,0),
-				\dryAmt, ~res[middleRow+9].asFloat.linlin(range_min, range_max, 0,1),
-				\sp1_amt, speaker1[9],
-				\sp2_amt, speaker2[9],
-				\sp3_amt, speaker3[9],
-				\sp4_amt, speaker4[9],
+					~ch9.set(
+						\lowcut, ~res[9].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~sect2_loaded[9].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+9].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt,~sect4_loaded[4].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~sect1_loaded[9].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~sect1_loaded[9].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[9],
+						\sp2_amt, speaker2[9],
+					);
+				},
+				{
+					~group1.set(\grainAmt, ~res[(rows*8)-1].asFloat.linlin(range_min,range_max, 1,0));
+					~group2.set(\grainAmt, ~res[(rows*7)-2].asFloat.linlin(range_min,range_max, 1,0));
+					~group3.set(\grainAmt, ~res[(rows*4)-5].asFloat.linlin(range_min,range_max, 1,0));
+
+					~ch0.set(
+						\lowcut, ~res[0].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[rows*2].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[0],
+						\sp2_amt, speaker2[0],
+					);
+
+					~ch1.set(
+						\lowcut, ~res[1].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut,~res[(~res.size-rows)+1].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+1].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+1].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+1].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+1].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[1],
+						\sp2_amt, speaker2[1],
+					);
+
+					~ch2.set(
+						\lowcut, ~res[2].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+2].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+2].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+2].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+2].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+2].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[2],
+						\sp2_amt, speaker2[2],
+					);
+
+					~ch3.set(
+						\lowcut, ~res[3].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+3].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+3].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+3].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+3].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+3].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[3],
+						\sp2_amt, speaker2[3],
+					);
+
+					~ch4.set(
+						\lowcut, ~res[4].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+4].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+4].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+4].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+4].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+4].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[4],
+						\sp2_amt, speaker2[4],
+					);
+
+					~ch5.set(
+						\lowcut, ~res[5].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+5].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+5].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+5].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+5].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+5].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[5],
+						\sp2_amt, speaker2[5],
+					);
+
+					~ch6.set(
+						\lowcut, ~res[6].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+6].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+6].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+6].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+6].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+6].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[6],
+						\sp2_amt, speaker2[6],
+					);
+
+					~ch7.set(
+						\lowcut, ~res[7].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+7].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+7].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+7].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+7].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+7].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[7],
+						\sp2_amt, speaker2[7],
+					);
+
+					~ch8.set(
+						\lowcut, ~res[8].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+8].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+8].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+8].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+8].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+8].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[8],
+						\sp2_amt, speaker2[8],
+					);
+
+					~ch9.set(
+						\lowcut, ~res[9].asFloat.linlin(range_min, range_max, 2000,20),
+						\hicut, ~res[(~res.size-rows)+9].asFloat.linlin(range_min, range_max, 2100,15000),
+						\fsAmt, ~res[threeQuarters+9].asFloat.linlin(range_min, range_max, 1,0),
+						\crushAmt, ~res[(rows*2)+9].asFloat.linlin(range_min, range_max, 0.5,0),
+						\revAmt, ~res[middleRow+9].asFloat.linlin(range_min, range_max, 0.8,0),
+						\dryAmt, ~res[middleRow+9].asFloat.linlin(range_min, range_max, 0,1),
+						\sp1_amt, speaker1[9],
+						\sp2_amt, speaker2[9],
+					);
+				}
 			);
 
 			// some operations to calculate the averatge of sme of the columns
 
 			// frequency shifter param (fshift)
-			tempFsAvg = ~res[(threeQuarters+rows).asInteger..((threeQuarters+(rows*2))).asInteger];
-			tempFsAvg = tempFsAvg.sum{arg i; i.asFloat};
-			tempFsAvg = tempFsAvg / rows;
+			tempFsAvg = ~sect4_loaded.sum{arg i; i.asFloat};
+			tempFsAvg = tempFsAvg / ~sect4_loaded.size;
 			tempFsAvg = tempFsAvg.linlin(range_min, range_max, 200, 0.4);
 
 			// rev params (room size / decay)
 			// room size
-			tempRevAvg1 = ~res[(rows*(columns/2).round).asInteger .. (middleRow-1)]; // one row less than middle row
-			tempRevAvg1 = tempRevAvg1.sum{arg i; i.asFloat};
-			tempRevAvg1 = tempRevAvg1 / rows;
+			tempRevAvg1 = ~sect1_loaded.sum{arg i; i.asFloat};
+			tempRevAvg1 = tempRevAvg1 / ~sect1_loaded.size;
 			tempRevAvg1 = tempRevAvg1.linlin(range_min, range_max, 5, 80);
 
-			tempRevAvg2 = ~res[((rows*(columns/2).round)+rows).asInteger .. ((rows*(columns/2).round)+(rows*2)).asInteger]; // one row after middle row
-			tempRevAvg2 = tempRevAvg2.sum{arg i; i.asFloat};
-			tempRevAvg2 = tempRevAvg2 / rows;
+			tempRevAvg2 = ~sect2_loaded.sum{arg i; i.asFloat};
+			tempRevAvg2 = tempRevAvg2 / ~sect2_loaded.size;
 			tempRevAvg2 = tempRevAvg2.linlin(range_min, range_max, 1.3, 5);
+
 
 			// set the computed averages on their fx synths
 			~freqshift_ch.set(
@@ -845,6 +1023,9 @@ SerialPort.closeAll;
 					k.asFloat.linlin(range_min,range_max,1,0);
 				};
 
+
+
+
 				// update grid GUI shades
 				views_full[index].do{
 					arg currentView, counter;
@@ -854,8 +1035,8 @@ SerialPort.closeAll;
 			};
 
 			0.02.wait;
-		}
-	}).play(AppClock);
+
+	}}).play(AppClock);
 
 
 	~previous = nil; // introduce the variable
