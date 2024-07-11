@@ -44,10 +44,10 @@ SerialPort.closeAll;
 
 	// server operations
 
-	Server.default.options.device = "BlackHole 2ch";
+	//Server.default.options.device = "BlackHole 2ch";
 	//Server.default.options.device = "Scarlett 18i20 USB";
-	//Server.default.options.inDevice = "Built-in Input";
-	//Server.default.options.outDevice = "Built-in Output";
+	Server.default.options.inDevice = "Built-in Input";
+	Server.default.options.outDevice = "Built-in Output";
 	Server.default.options.sampleRate = 44100;
 	s.options.numOutputBusChannels = 4; // 4 out hardware chs (use ~outs to set actual routing)
 	s.options.numBuffers = 20000; // then reboot to save the changee
@@ -62,12 +62,12 @@ SerialPort.closeAll;
 		// DON'T USE LETTERS: THEYRE GONNA BE INTERPRETED AS NUMBERS IN SILLYCODE!!!!!
 		// REPLACE f AND h WITH SOMETHING LIKE ~frameSize and ~hopSize
 		~fft_frameSize = 512; // fft analysis frame size
-		~fft_hopSize = 0.25; // hop size*/
-		//s.
+		~fft_hopSize = 0.25; // hop size
+
 		Buffer.freeAll;
 		~sounds = Array.new;
 		// folder = PathName.new("/Users/Robin/Desktop/TUTTO/ATTIVI/SillyCode/Samples/");
-		folder = PathName.new("/Volumes/SSD ROBIN/Matrix/sounds/slices_2_onset/");
+		folder = PathName.new(thisProcess.nowExecutingPath.dirname+/+"Sounds");
 		// need to increase max buf number (1024)
 		//~folderEntries
 		folder.entries.scramble.do({
@@ -377,7 +377,6 @@ SerialPort.closeAll;
 	Tdef(\colorControl).stop;
 	Tdef(\colorCheck).stop;
 	SerialPort.closeAll;
-	~port = SerialPort.new("/dev/tty.usbserial-A703Y978", 115200);
 
 	// open audio channels
 	// (ordered as they would in a real audio chain.. tweak around)
@@ -412,20 +411,53 @@ SerialPort.closeAll;
 	~ch9 = Synth.new(\channelBus, [
 		\in, ~bus9, \dryBus, ~master_bus, \revBus, ~rev_bus, \fsBus, ~fs_bus, \grainBus, ~grain_bus,], ~group3);
 
+
+
+/*
+	~port = SerialPort.new("/dev/tty.usbserial-A703Y978", 115200);
+
 	Tdef(\readSerial, {
-	loop{
-		var byte, str, res;
-		if(~port.read==10,
-			{	str = "";
-				while(
-					{byte = ~port.read; byte!=13},
-					{str = str++byte.asAscii}
-				);
-				res = str.split($ );
-				~res=res;
+		loop{
+			var byte, str, res;
+			if(~port.read==10,
+				{	str = "";
+					while(
+						{byte = ~port.read; byte!=13},
+						{str = str++byte.asAscii}
+					);
+					res = str.split($ );
+					~res=res;
 			});
-	}
+		}
 	}).play;
+
+	//
+	// if( // if Arduino is connected, create serial port and start reading.
+	// 	// otherwise just deactivate the visualiser with a decoy array
+	// 	~port.isNil.not, {
+	//
+	// 		~port = SerialPort.new("/dev/tty.usbserial-A703Y978", 115200);
+	//
+	// 		Tdef(\readSerial, {
+	// 			loop{
+	// 				var byte, str, res;
+	// 				if(~port.read==10,
+	// 					{	str = "";
+	// 						while(
+	// 							{byte = ~port.read; byte!=13},
+	// 							{str = str++byte.asAscii}
+	// 						);
+	// 						res = str.split($ );
+	// 						~res=res;
+	// 				});
+	// 			}
+	// 		}).play;
+	//
+	// 	}, {
+	// 		~res = Array.fill(rows*columns, range_max);
+	// 	}
+	// );
+*/
 
 
 	if( // SALVATAGGIO AUTOMATICO DEL TESTO SE C'è QUALCOSA DI SCRITTO
@@ -503,15 +535,15 @@ SerialPort.closeAll;
 
 	Window.closeAll;
 
-	//w = Window.new("SillyCode", Rect(0,0,width: (Window.screenBounds.width/1.5)+20,height: Window.screenBounds.height)).front;
 	w = Window.new("SillyCode-Matrix", Rect(0,0,
 		width: (Window.screenBounds.width/1.5)+20,
 		height: Window.screenBounds.height
 	)).front; // main window
+	w.background_(Color.gray(0));
 	z = PdefAllGui(11);
 	s.meter;
 
-
+/*
 
 	// creates a series of columns (background black)
 	views = (0..14).collect{
@@ -1078,7 +1110,7 @@ SerialPort.closeAll;
 
 
 
-
+*/
 
 
 
