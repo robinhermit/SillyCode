@@ -17,12 +17,32 @@ SerialPort.closeAll;
 		).unixCmdGetStdOut.split($-)
 	};
 
-	"Parsing function: ready.".postln;
+
+	~get_more = {|language, input|
+		format(
+			// check python path! otherwise unixCmdGetStdOut won't work
+			"/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 -c \"import pyphen; dic= pyphen.Pyphen(lang='%'); out = dic.iterate('%'); print(tuple(out))\"",
+			language, input
+		).unixCmdGetStdOut.split($-)
+	};
+
+	~get_position = {|language, input|
+		format(
+			// check python path! otherwise unixCmdGetStdOut won't work
+			"/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 -c \"import pyphen; dic= pyphen.Pyphen(lang='%'); out = dic.positions('%'); print(out)\"",
+			language, input
+		).unixCmdGetStdOut.split($-)
+	};
+
+
+	"Parsing functions: ready.".postln;
 
 	// fake stringa di test
-	~stringa = "Questo testo qua, come esempio";
+	//~stringa = "Questo testo qua, come esempio";
+	~stringa = "Invisible Margaret with Wednesday vibe";
 	// inizializza con italiano
-	~language= "it";
+	//~language= "it";
+		~language= "en";
 
 	"SillyCode - a live-coding environment for text sonification".postln;
 
@@ -34,9 +54,32 @@ SerialPort.closeAll;
 ~bb = {
 	// ready to go! now you only have to insert a word here as string. if it doesn't exist, it'll print nil, otherwise it'll print the correct hyphenation
 	// test function
+
 	x = ~get_sylabs.(~language, ~stringa).do(_.postln);
-	if(x.isNil.not, {">>>>> 100 % >>>>>>>>>>>> Association confirmed".postln;
-		x.postln;
+	if(
+		x.isNil.not, {
+			" >>> first-choice function setup!! <<<".postln;
+			x.postln;
+	});
+
+
+	y = ~get_more.(~language, ~stringa).do(_.postln);
+	if( y.isNil.not
+		&& y.isArray
+		&& y.size > 0,
+	{
+			" >>> alternative function setup!! <<<".postln;
+			// splitta in get_more indexes (split positions)
+  	});
+
+	z = ~get_position.(~language, ~stringa).do(_.postln);
+	if( z.isNil.not
+		&& z.isArray
+		&& z.size > 0,
+	{
+			" >>> positions <<<".postln;
+			// splitta in get_more indexes (split positions)
+		z.postln;
 	});
 };
 
@@ -45,9 +88,9 @@ SerialPort.closeAll;
 	// server operations
 
 	//Server.default.options.device = "BlackHole 2ch";
-	//Server.default.options.device = "Scarlett 18i20 USB";
-	Server.default.options.inDevice = "Built-in Input";
-	Server.default.options.outDevice = "Built-in Output";
+	Server.default.options.device = "Scarlett 18i20 USB";
+	//Server.default.options.inDevice = "Built-in Input";
+	//Server.default.options.outDevice = "Built-in Output";
 	Server.default.options.sampleRate = 44100;
 	s.options.numOutputBusChannels = 4; // 4 out hardware chs (use ~outs to set actual routing)
 	s.options.numBuffers = 20000; // then reboot to save the changee
@@ -413,53 +456,6 @@ SerialPort.closeAll;
 
 
 
-/*
-	~port = SerialPort.new("/dev/tty.usbserial-A703Y978", 115200);
-
-	Tdef(\readSerial, {
-		loop{
-			var byte, str, res;
-			if(~port.read==10,
-				{	str = "";
-					while(
-						{byte = ~port.read; byte!=13},
-						{str = str++byte.asAscii}
-					);
-					res = str.split($ );
-					~res=res;
-			});
-		}
-	}).play;
-
-	//
-	// if( // if Arduino is connected, create serial port and start reading.
-	// 	// otherwise just deactivate the visualiser with a decoy array
-	// 	~port.isNil.not, {
-	//
-	// 		~port = SerialPort.new("/dev/tty.usbserial-A703Y978", 115200);
-	//
-	// 		Tdef(\readSerial, {
-	// 			loop{
-	// 				var byte, str, res;
-	// 				if(~port.read==10,
-	// 					{	str = "";
-	// 						while(
-	// 							{byte = ~port.read; byte!=13},
-	// 							{str = str++byte.asAscii}
-	// 						);
-	// 						res = str.split($ );
-	// 						~res=res;
-	// 				});
-	// 			}
-	// 		}).play;
-	//
-	// 	}, {
-	// 		~res = Array.fill(rows*columns, range_max);
-	// 	}
-	// );
-*/
-
-
 	if( // SALVATAGGIO AUTOMATICO DEL TESTO SE C'è QUALCOSA DI SCRITTO
 		t.notNil,
 		{
@@ -545,68 +541,7 @@ SerialPort.closeAll;
 
 /*
 
-	// creates a series of columns (background black)
-	views = (0..14).collect{
-		arg m, ind;
-		CompositeView(w, Rect(10+(ind*scale), 10, width: w.bounds.width/columns+55, height: w.bounds.height-60))
-		.background_(Color.gray(0))
-	};
-	// all views in a composite view
-	views_full = views.collect{
-		arg o, index;
-		rows.collect{
-			arg p;
-			CompositeView(views[index], Rect(0,0+(p*scale), scale, scale))
-			.background_(Color.gray(0.5)) // <-- this is the value to modulate
-		}
-	};
 
-	~subRes = Array.new(200);
-
-	~res.do({
-		arg item, i;
-		if(
-			(item.asInteger) < 1000,
-			{
-				~subRes.add([i, item])
-			}
-		);
-	});  // 32 channels?
-	// 12 front
-	// 9 back
-	// 12 right
-	// 8 left
-
-	Tdef(\sweater, {
-		loop{
-
-			~subRes = Array.new(200);
-
-			~res.do({
-				arg item, i;
-				if(
-					(item.asInteger) < 900,
-					{
-						~subRes.add([i, item])
-					}
-				);
-			});  // 32 channels?
-			// 12 front
-			// 9 back
-			// 12 right
-			// 8 left
-			~sect1 = ~subRes[0..(~subRes.size/3).round.asInteger];
-			~sect2 = ~subRes[(((~subRes.size/3).round.asInteger)+1)..((~subRes.size/3)+(~subRes.size/4)).round.asInteger];
-			~sect3 = ~subRes[(((~subRes.size/3)+(~subRes.size/4)).round.asInteger+1)..((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)).round.asInteger];
-			~sect4 = ~subRes[(((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)).round.asInteger+1)..((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)+(~subRes.size/6)).round.asInteger];
-
-			if(
-				((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)+(~subRes.size/7)).round.asInteger < ~subRes.size,
-				{~sec_remain = ~subRes[((~subRes.size/3)+(~subRes.size/4)+(~subRes.size/6)+(~subRes.size/7)).round.asInteger+1..~subRes.size-1]},
-				{~sec_remain=nil}
-			);
-			0.1.wait;
-	}}).play(AppClock);
 
 	// this task updates the GUI at 20ms rate (slower than arduino readings)
 	Tdef(\colorControl, {
@@ -1013,106 +948,12 @@ SerialPort.closeAll;
 				\sp4_amt, sp4_avg,
 			);
 
-
-			views_full.do{
-				arg view, index;
-				var rowStart, rowEnd,
-				shades, store_index, scope,
-				coordinates, coor_coll;
-
-				// fragments ~res in as many chunks as rows, to place it in views
-				rowStart = index*rows;
-				rowEnd = (index*rows)+(rows-1);
-				// raw values coming from arduino, in the current chunk
-				scope = ~res[rowStart..rowEnd];
-
-				// map raw values with color intensity
-				shades = scope.collect{
-					arg j;
-					j.asFloat.linlin(range_min,range_max,1,0);
-				};
-
-				// store index to use in nested scopes
-				store_index = index;
-
-
-
-				// check for points exceeding specified threshold
-				coordinates = scope.collect{
-					arg k, idx;
-
-					if(k.asFloat.linlin(range_min,range_max,1,0) > trig_threshold, {
-						var arr =
-						[ // if the normalised value exceeds trig_threshold, add coordinates too coor_coll
-							store_index.asFloat.linlin(0,columns-1,0,1), // x
-							idx.asFloat.linlin(0,rows-1,1,0), // y
-							k.asFloat.linlin(range_min,range_max,1,0) // normalised value
-						];
-						coor_coll = coor_coll.add(arr);
-						~coor_coll = coor_coll; // make it global
-					});
-					// this value will go in coordinates
-					k.asFloat.linlin(range_min,range_max,1,0);
-				};
-
-
-
-
-				// update grid GUI shades
-				views_full[index].do{
-					arg currentView, counter;
-					{ currentView.background_(Color.gray(shades[counter])) }.defer;
-				};
-
-			};
-
-			0.02.wait;
-
-	}}).play(AppClock);
-
-
-	~previous = nil; // introduce the variable
-
-
-
-
-
-
-	Tdef(\colorCheck, {//observes grid status, plays slices at need
-		loop{
-			views_full.do{
-				arg view, index;
-				//var pair, value;
-
-				~pair = ~coor_coll.collect{
-					arg item, i;
-					[item[0], item[1]]
-				};
-
-				~value = ~coor_coll.collect{
-					arg item, i;
-					item[2]; // this is teh value list of active nodes (same order as pair)
-
-				};
-
-
-			};
-
-			if(~coor_coll.size != 0, { // if there are coordinates,
-				// do something with the coordinates and value
-				// (only for trigger based applications)
-
-			});
-
-			0.05.wait;
-		}
-	}).play;
-
-
-
 */
 
 
+	~coeff_zero = 2;
+	~roundVal = 0.025;
+		//~dd.();
 
 	~language = "en"; // default language English
 	~lang = "en"; // default language English
@@ -1143,898 +984,925 @@ SerialPort.closeAll;
 	// keyboard functions
 
 	t.keyDownAction =
-	{ arg view, char, modifiers, unicode, keycode;
+		{ arg view, char, modifiers, unicode, keycode;
 
-		~switch = switch (keycode) // KEY PARSER
+			~switch = switch (keycode) // KEY PARSER
 
-		{49} // BARRA SPAZIATRICE
-		{
-			if(~sideQuest==0 && ~currentLine.isNumber.not, {
+			{49} // BARRA SPAZIATRICE
+			{
+				if(~sideQuest==0 && ~currentLine.isNumber.not, {
 
-				~parolaDurate = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
-				~indici_parola = [];
+					~parolaDurate = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
+					~indici_parola = [];
 
-				// se c'è solo punteggiatura nella cache, sequenziala prima di processare parole
-				// se c'è solo punteggiatura e non parole quando premi spazio, quelle pause vengono aggiunte da sole
-				~durataLinea = ~durataLinea++~punct_cache; //aggiungi eventuali rest (punteggiatura) nella cache
-				~punct_cache = []; // svuota cache comunque prima di analizzare la parola;
+					// se c'è solo punteggiatura nella cache, sequenziala prima di processare parole
+					// se c'è solo punteggiatura e non parole quando premi spazio, quelle pause vengono aggiunte da sole
+					~durataLinea = ~durataLinea++~punct_cache; //aggiungi eventuali rest (punteggiatura) nella cache
+					~punct_cache = []; // svuota cache comunque prima di analizzare la parola;
 
-				if( t.currentLine.find("/").isNil
-					&& t.currentLine.find("@").isNil // if there's an "end sidequest" mark in the line, DON'T sonify it
-					&& t.currentLine.find("").isNil,
-					{
-						~currentLine = [t.currentLine.asString.toLower
+					if( // if there are open and closed brackets, evaluate the expr in there
+						t.currentLine.find("(").isNil.not
+						&& t.currentLine.find(")").isNil.not,
+						{ // create "brackets" array
+							~brackets = t.currentLine[(t.currentLine.find("("))..(t.currentLine.find(")"))]
+						}, {}
+					);
+
+					if( t.currentLine.find("/").isNil
+						&& t.currentLine.find("@").isNil // if there's an "end sidequest" mark in the line, DON'T sonify it
+						&& t.currentLine.find("").isNil,
+						{
+							~currentLine = [t.currentLine.asString.toLower
+								.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:)
+								.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $().reject(_ == $)).reject(_ == $+)
+								.reject(_ == $|).reject(_ == $>).reject(_ == $=)
+								.split($ )].flatten; // dividi linea in parole
+						}, {}
+					);
+
+					// updata numeroCorrente ogni volta che premi spazio
+					t.currentLine.size.do{
+						arg i;
+						if(
+							t.currentLine[i].asString
 							.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:)
 							.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $().reject(_ == $)).reject(_ == $+)
-							.reject(_ == $|).reject(_ == $>).reject(_ == $=)
-							.split($ )].flatten; // dividi linea in parole
-					}, {}
-				);
-				// updata numeroCorrente ogni volta che premi spazio
-				t.currentLine.size.do{
-					arg i;
-					if(
-						t.currentLine[i].asString
-						.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:)
-						.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $().reject(_ == $)).reject(_ == $+)
-						.reject(_ == $|).reject(_ == $>).reject(_ == $=)
-						.interpret.isNumber,
-						//&& t.currentLine[i].asString.interpret.isNil.not,
-						{~numeroCorrente=t.currentLine[i];
-							~currentLine.removeAt(i)
-						},
-						{"...".postln}
-					);
-				};
-				~currentLine_wordsnum = ~currentLine.flatten.reject(_.isNumber).size; // numero parole nella riga
-				~lastWord = ~currentLine[~currentLine.size-1].asString; // prendi l'ultima parola
+							.reject(_ == $|).reject(_ == $>).reject(_ == $=).reject(_ == $ )
+							.interpret.isNumber,
+							//&& t.currentLine[i].asString.interpret.isNil.not,
+							{~numeroCorrente=t.currentLine[i];
+								~currentLine.removeAt(i)
+							},
+							{"...".postln}
+						);
+					};
+					~currentLine_wordsnum = ~currentLine.flatten.reject(_.isNumber).size; // numero parole nella riga
+					~lastWord = ~currentLine[~currentLine.size-1].asString; // prendi l'ultima parola
 
-				if( // se l'ultima parola non è nil, trasformala in sequenza, altrimenti ignorala
-					(~lastWord != "nil") && (~lastWord.isNumber.not),
+					if( // se l'ultima parola non è nil, trasformala in sequenza, altrimenti ignorala
+						(~lastWord != "nil") && (~lastWord.isNumber.not) && (~lastWord != ($ )),
 
-					{
-						// DA QUI SUBENTRA PYPHEN.
+						{
+							// DA QUI SUBENTRA PYPHEN.
 
-						// DIVIDI IN SILLABE.
+							// DIVIDI IN SILLABE.
 
-						~currentWord_syllables = ~get_sylabs.(~language, ~lastWord)
-						.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:).reject(_ == $|)
-						.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $\t ).reject(_.isNumber)/*.split($-)*/;// dividila in sillabe;
+							~currentWord_syllables = ~get_sylabs.(~language, ~lastWord)
+							.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:).reject(_ == $|)
+							.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $\t ).reject(_.isNumber).reject(_ == $ )/*.split($-)*/;// dividila in sillabe;
 
 
-						// correct Pyphen string: last syllable always has a fucking additional
-						// character at the end (tried deleting it with reject $\n , $_ , $  , $\t , it doesn't work.
-						// parse the last syllable and remove the last element)
-						~sillaba_incriminata = ~currentWord_syllables[~currentWord_syllables.size-1];
-						~sillaba_incriminata.removeAt(~sillaba_incriminata.size-1);
+							// correct Pyphen string: last syllable always has a fucking additional
+							// character at the end (tried deleting it with reject $\n , $_ , $  , $\t , it doesn't work.
+							// parse the last syllable and remove the last element)
+							~sillaba_incriminata = ~currentWord_syllables[~currentWord_syllables.size-1];
+							~sillaba_incriminata.removeAt(~sillaba_incriminata.size-1);
 
-						~currentWord_syllables.postln; // postala sillabazione della parola
+							~currentWord_syllables.postln; // postala sillabazione della parola
 
-						///////////////////////////////////////////////////////////////////////////////////////
-						// per ogni sillaba, fai quanto segue
-						~currentWord_syllables.size.do{
-							arg i;
-							var switchMode, passSwitch;
+							///////////////////////////////////////////////////////////////////////////////////////
+							// per ogni sillaba, fai quanto segue
+							~currentWord_syllables.size.do{
+								arg i;
+								var switchMode, passSwitch;
 
-							~modeSelector=~mode;
+								~modeSelector=~mode;
 
-							~sillabaDurate = []; // reset - array di durate (un beat)
-							~moltiplica_indice_copie = [];
+								~sillabaDurate = []; // reset - array di durate (un beat)
+								~moltiplica_indice_copie = [];
 
-							// per ogni sillaba (i) segna numero di lettere
-							~lettere_inSillaba = ~currentWord_syllables.at(i).size; // n lettere in sillaba
+								// per ogni sillaba (i) segna numero di lettere
+								~lettere_inSillaba = ~currentWord_syllables.at(i).size; // n lettere in sillaba
 
-							// depending on modeselector, decidi come rappresentare sillabe
-							switchMode = ~modeSelector.value; // local modeSelector proxy
+								// depending on modeselector, decidi come rappresentare sillabe
+								switchMode = ~modeSelector.value; // local modeSelector proxy
 
-							//>>>>>>>>   		//switch
-							passSwitch = switch (switchMode)
+								//>>>>>>>>   		//switch
+								passSwitch = switch (switchMode)
 
-							{0} // Lettera-centrico
-							{
-								// per ogni lettera nella sillaba
-								~lettere_inSillaba.do{ // per ogni lettera, metti in array di durate
-									arg j;
-									~sillabaDurate = ~sillabaDurate.insert(
-										j, (1/(~lettere_inSillaba*2)).round(0.025)
+								{0} // Lettera-centrico
+								{
+									// per ogni lettera nella sillaba
+									~lettere_inSillaba.do{ // per ogni lettera, metti in array di durate
+										arg j;
+										~sillabaDurate = ~sillabaDurate.insert(
+											j, (1/(~lettere_inSillaba*~coeff_zero)).round(~roundVal) // QUESTO QUAAAAAAAAAAAAAAAAAAA
+										);
+									};
+									// RICAVA DURATE PER ARRAY DURATE
+
+									if(	// se è ultima istanza, selezionala per durate
+										~sillabaDurate.size === ~lettere_inSillaba,
+										// trasferiscila in parolaDurate
+										{
+											~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
+
+											// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
+											// prepara anche array di buffers
+											// checka sillabe all'interno dell'array "unique", per cioccare l'indice
+											if( // se hai una nuova sillaba..
+												~cached_pairs.keys.asArray
+												.includesEqual(~currentWord_syllables.at(i).asString)
+												.not,
+												{//.. salva una nuova associazione nel dizionario cached_pairs
+
+													// sample picked random from the assignable set
+													~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+
+													// crea associazione sillaba corrente (nuova)
+													~cached_pairs = ~cached_pairs.put(
+														~currentWord_syllables.at(i).asString,
+														~bingo_sample_num);
+													// finally, remove the random picked sample number from the set of assignable samples;
+													~assignable_samples.remove(~bingo_sample_num);
+													"nuova sillaba aggiunta".postln;
+
+													// operazioni per array buffers:
+													~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+													~moltiplica_indice_copie = Array.fill(
+														~lettere_inSillaba, {~indice_sillaba}
+													);
+													~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+												},
+
+												{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
+													if(
+														~cached_pairs.keys.asArray
+														.includesEqual(~currentWord_syllables.at(i).asString),
+														{
+															// stessa roba diocan?
+															~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+															~moltiplica_indice_copie = Array.fill(
+																~lettere_inSillaba, {~indice_sillaba});
+															~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+														},
+														{"uopssss....".postln}
+													);
+												}
+											);
+
+										},
 									);
-								};
+								}
 
 								// RICAVA DURATE PER ARRAY DURATE
 
+								{1} // Sillaba-centrico
+								{
+									// essenzialmente mette solo un valore di durata denetro sillabaDurate
+									~sillabaDurate = ~sillabaDurate.add(~lettere_inSillaba*0.125);
+									~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
+									//////////////////////////////////////////////////////////////////////
 
-								if(	// se è ultima istanza, selezionala per durate
-									~sillabaDurate.size === ~lettere_inSillaba,
-									// trasferiscila in parolaDurate
-									{
-										~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
+									// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
 
-										// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
+									// prepara anche array di buffers
+									// checka sillabe all'interno dell'array "unique", per cioccare l'indice
+									//~now = ~currentWord_syllables.at(i).asString;
+									if( // se hai una nuova sillaba..
+										~cached_pairs.keys.asArray
+										.includesEqual(~currentWord_syllables.at(i).asString)
+										.not,
+										{//.. salva una nuova associazione nel dizionario cached_pairs
 
-										// prepara anche array di buffers
-										// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-										if( // se hai una nuova sillaba..
-											~cached_pairs.keys.asArray
-											.includesEqual(~currentWord_syllables.at(i).asString)
-											.not,
-											{//.. salva una nuova associazione nel dizionario cached_pairs
+											// sample picked random from the assignable set
+											~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+											// crea associazione sillaba corrente (nuova)
+											~cached_pairs = ~cached_pairs.put(
+												~currentWord_syllables.at(i).asString,
+												~bingo_sample_num);
+											// finally, remove the random picked sample number from the set of assignable samples;
+											~assignable_samples.remove(~bingo_sample_num);
+											"nuova sillaba aggiunta".postln;
 
-												// sample picked random from the assignable set
-												~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+											// operazioni per array buffers:
+											~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+											~moltiplica_indice_copie = Array.fill(
+												~lettere_inSillaba, {~indice_sillaba}
+											);
+											~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+										},
 
-												// crea associazione sillaba corrente (nuova)
-												~cached_pairs = ~cached_pairs.put(
-													~currentWord_syllables.at(i).asString,
-													~bingo_sample_num);
-												// finally, remove the random picked sample number from the set of assignable samples;
-												~assignable_samples.remove(~bingo_sample_num);
-												"nuova sillaba aggiunta".postln;
-
-												// operazioni per array buffers:
-												~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-												~moltiplica_indice_copie = Array.fill(
-													~lettere_inSillaba, {~indice_sillaba}
-												);
-												~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-											},
-
-											{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-												if(
-													~cached_pairs.keys.asArray
-													.includesEqual(~currentWord_syllables.at(i).asString),
-													{
-														// stessa roba diocan?
-														~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-														~moltiplica_indice_copie = Array.fill(
-															~lettere_inSillaba, {~indice_sillaba});
-														~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-													},
-													{"uopssss....".postln}
-												);
-											}
-										);
-
-									},
-								);
-							}
-
-							// RICAVA DURATE PER ARRAY DURATE
-
-							{1} // Sillaba-centrico
-							{
-								// essenzialmente mette solo un valore di durata denetro sillabaDurate
-								~sillabaDurate = ~sillabaDurate.add(~lettere_inSillaba*0.125);
-								~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
-								//////////////////////////////////////////////////////////////////////
-
-								// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
-
-								// prepara anche array di buffers
-								// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-								//~now = ~currentWord_syllables.at(i).asString;
-								if( // se hai una nuova sillaba..
-									~cached_pairs.keys.asArray
-									.includesEqual(~currentWord_syllables.at(i).asString)
-									.not,
-									{//.. salva una nuova associazione nel dizionario cached_pairs
-
-										// sample picked random from the assignable set
-										~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
-										// crea associazione sillaba corrente (nuova)
-										~cached_pairs = ~cached_pairs.put(
-											~currentWord_syllables.at(i).asString,
-											~bingo_sample_num);
-										// finally, remove the random picked sample number from the set of assignable samples;
-										~assignable_samples.remove(~bingo_sample_num);
-										"nuova sillaba aggiunta".postln;
-
-										// operazioni per array buffers:
-										~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-										~moltiplica_indice_copie = Array.fill(
-											~lettere_inSillaba, {~indice_sillaba}
-										);
-										~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-									},
-
-									{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-										if(
-											~cached_pairs.keys.asArray
-											.includesEqual(~currentWord_syllables.at(i).asString),
-											{
-												// stessa roba diocan?
-												~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-												~moltiplica_indice_copie = Array.fill(
-													~lettere_inSillaba, {~indice_sillaba});
-												~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-											},
-											{"uopssss....".postln}
-										);
-									}
-								);
+										{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
+											if(
+												~cached_pairs.keys.asArray
+												.includesEqual(~currentWord_syllables.at(i).asString),
+												{
+													// stessa roba diocan?
+													~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+													~moltiplica_indice_copie = Array.fill(
+														~lettere_inSillaba, {~indice_sillaba});
+													~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+												},
+												{"uopssss....".postln}
+											);
+										}
+									);
 
 
-							}
-							{} {};
+								}
+								{} {};
+							};
+
+							~sillabe_assegnabili = ~sillabe_assegnabili.add(~indici_parola);
+							~lista_indici = ~sillabe_assegnabili.flatten;
+
+							// infine, aggiungi parola appena emessa dentro la Linea
+							~durataLinea = ~durataLinea.add(~parolaDurate.flatten).flatten;
+							// sequenza simbolica (sillabe -> simboli a scelta)
+							//~sequence_type_1 = ~lista_indici.linlin(0, ~unique.size, 0, ~folder.entries.size).round.asInteger;
+							~sequence_type_1 = ~lista_indici;
+							// (determina quali sample assegnare, da cartella progetto
+						},
+
+						// se non Nil, ma
+						{
+							"__".postln;
+						} //se è Nil -->qualcosa ???
+					);
+					~durataLinea.postln;
+					~durataLinea = ~durataLinea++~punct_cache; //aggiungi eventuali rest (punteggiatura) nella cache
+				}, { }
+				);
+
+			}
+
+			{36} // al premere INVIO
+			{
+				//var numeroCorrente;
+				// aggiorna durations alla fine della sequenza di quando premi spazio
+				// e aggiungi eventuali rest (punteggiatura) presente nella cache
+
+				//~durataLinea = ~durataLinea++~punct_cache;
+
+				// update params of interest (why not rate? funziona anche senza?)
+				//~stretch = 60/~tempo*~measure;
+				~release = ~rel.clip(0.2, 5);
+				~attack = ~atk.clip(0.01, 4);
+				~tempo = ~bpm;
+
+				if(~lista_indici.isEmpty.not && ~numeroCorrente.isNil.not, {
+					~sequence_type_1 = ~lista_indici;
+					("SEQ "++~numeroCorrente.asString++" : ").post; ~sequence_type_1.postln;
+				});
+
+
+
+				// AGGIUNGI ULTERIORE SWITCH: SE QUANDO PREMI INVIO C'è UN NUMERO,
+				// RINOMINA PDEF PER ACCEDERE A QUEL NUMERO
+
+				// al premere invio, itera attraverso la riga corrente.
+				// se trova numeri, salva l'ultimo in numeroCorrente
+				// e attiva lo switch corrispondente
+
+				//~numeroCorrente=numeroCorrente;
+				if(~durataLinea.isEmpty.not && ~lista_indici.isEmpty.not,
+					{
+						~pdefs_choice = switch
+						(~numeroCorrente.value.asString.asInteger)
+
+						{0}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus0;
+
+							Pdef(\playbuf_0, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+								//\start, Pif(rate<0, Pseq(sequence_type_1, inf).value.numFrames-2, 0),
+								//\start, ~sounds[Pkey(\buf).trace].asInteger.numFrames - 2,
+							)).play(~clock, quant: stretch);
+						}
+
+						{1}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus1;
+
+							Pdef(\playbuf_1, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+
+						}
+						{2}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus2;
+
+							Pdef(\playbuf_2, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+						}
+						{3}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus3;
+
+							Pdef(\playbuf_3, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+						}
+						{4}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus4;
+
+							Pdef(\playbuf_4, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+						}
+						{5}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus5;
+
+							Pdef(\playbuf_5, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+						}
+						{6}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus6;
+
+							Pdef(\playbuf_6, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+						}
+						{7}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus7;
+
+							Pdef(\playbuf_7, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+						}
+						{8}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus8;
+
+							Pdef(\playbuf_8, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
+						}
+						{9}
+						{
+							var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
+							stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
+							attack=~attack; release=~release; rate=~rate;
+							bus=~bus9;
+
+							Pdef(\playbuf_9, Pbind(
+								\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
+									{\playbuf_test_mono} {\playbuf_test_stereo}},
+								\stretch, stretch,
+								\dur, Pseq(durataLinea, inf),
+								\buf, Pseq(sequence_type_1, inf),
+								\rel, Pseq([release], inf),
+								\atk, Pseq([attack], inf),
+								\rate, Pseq([rate], inf),
+								\out, Pseq([bus], inf),
+							)).play(~clock, quant: stretch);
 						};
+					},
+					{});
 
-						~sillabe_assegnabili = ~sillabe_assegnabili.add(~indici_parola);
-						~lista_indici = ~sillabe_assegnabili.flatten;
+				"> > > > EXECUTE "++~numeroCorrente.asString.postln;
+				~punct_cache = []; // svuota cache punteggiatura
 
-						// infine, aggiungi parola appena emessa dentro la Linea
-						~durataLinea = ~durataLinea.add(~parolaDurate.flatten).flatten;
-						// sequenza simbolica (sillabe -> simboli a scelta)
-						//~sequence_type_1 = ~lista_indici.linlin(0, ~unique.size, 0, ~folder.entries.size).round.asInteger;
-						~sequence_type_1 = ~lista_indici;
-						// (determina quali sample assegnare, da cartella progetto
+
+				~tempo=~bpm;
+				~measure=~division;
+				~stretch = 60/~tempo*~measure;
+				~numSpeakers=(~outs/2)-1;
+
+				~parolaDurate = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
+				~indici_parola = [];
+				~punct_cache = [];
+			}
+
+			// PUNTEGGIATURA: aggiunge rests alla cache ~punt_cache. viene concatenata alla linea
+			{43} // al premere VIRGOLA / PUNTO E VIRGOLA
+			{
+				if(modifiers==131072,
+					{ // se maiusc, punto e virgola (1/4)
+						~punct_cache = ~punct_cache.add(Rest((1/4)*~fattore_tempo)).flatten;
+					},
+					{ // altrimenti è virgola (1/16)
+						~punct_cache = ~punct_cache.add(Rest((1/16)*~fattore_tempo)).flatten;
+					}
+				);
+			}
+
+			{47} // al premere PUNTO / DUE PUNTI
+			{
+				if(modifiers==131072,
+					{ // se maiusc allora è due punti (1/8)
+						~punct_cache = ~punct_cache.add(Rest((1/8)*~fattore_tempo)).flatten;
+					},
+					{ // altrimenti è punto (1)
+						~punct_cache = ~punct_cache.add(Rest(1*~fattore_tempo)).flatten;
+					}
+				);
+			}
+
+
+
+
+			{30} // al premere + PLUS) // RESET PHRASE
+			//{42} // al premere + PLUS) // RESET PHRASE
+			{
+				~durataLinea = []; // resetta array composito di tutta la riga quando premi invio
+				~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
+				~lista_indici = []; // resetta array sequenza di simboli
+				~sequence_type_1 = [];
+				~punct_cache = [];
+				"RESET".postln;
+			}
+
+			{nil} {"--".postln}
+
+
+			{27} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
+			//{30} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
+			{
+				if(modifiers == 131072,
+					{
+						"punto interrogativo".postln;
+						~punct_cache = ~punct_cache.add((
+							[1/6, Rest(1/6), 1/6, 1/6, Rest(1/6), 1/6]
+							.flatten)*~fattore_tempo).flatten;
 					},
 
-					// se non Nil, ma
-					{
-						"__".postln;
-					} //se è Nil -->qualcosa ???
+					{ // al premere solo APOSTROFO ( ' ) // devi riuscire a includere l', degl', dell', un', d', gl
+						//"apostrofo".postln
+
+					}
 				);
-				~durataLinea.postln;
-				~durataLinea = ~durataLinea++~punct_cache; //aggiungi eventuali rest (punteggiatura) nella cache
-			}, { }
-			);
-
-		}
-
-		{36} // al premere INVIO
-		{
-			//var numeroCorrente;
-			// aggiorna durations alla fine della sequenza di quando premi spazio
-			// e aggiungi eventuali rest (punteggiatura) presente nella cache
-
-			//~durataLinea = ~durataLinea++~punct_cache;
-
-			// update params of interest (why not rate? funziona anche senza?)
-			//~stretch = 60/~tempo*~measure;
-			~release = ~rel.clip(0.2, 5);
-			~attack = ~atk.clip(0.01, 4);
-			~tempo = ~bpm;
-
-			if(~lista_indici.isEmpty.not && ~numeroCorrente.isNil.not, {
-				~sequence_type_1 = ~lista_indici;
-				("SEQ "++~numeroCorrente.asString++" : ").post; ~sequence_type_1.postln;
-			});
+			}
 
 
-
-			// AGGIUNGI ULTERIORE SWITCH: SE QUANDO PREMI INVIO C'è UN NUMERO,
-			// RINOMINA PDEF PER ACCEDERE A QUEL NUMERO
-
-			// al premere invio, itera attraverso la riga corrente.
-			// se trova numeri, salva l'ultimo in numeroCorrente
-			// e attiva lo switch corrispondente
-
-			//~numeroCorrente=numeroCorrente;
-			if(~durataLinea.isEmpty.not && ~lista_indici.isEmpty.not,
-				{
-					~pdefs_choice = switch
-					(~numeroCorrente.value.asString.asInteger)
-
-					{0}
+			{18} // al premere PUNTO ESCLAMATIVO ( maiusc + 1 )
+			{
+				if(modifiers == 131072,
 					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus0;
+						"punto esclamativo".postln;
+						~punct_cache = ~punct_cache.add([1/12, 1/12, 1/12]*~fattore_tempo).flatten;
 
-						Pdef(\playbuf_0, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-							//\start, Pif(rate<0, Pseq(sequence_type_1, inf).value.numFrames-2, 0),
-							//\start, ~sounds[Pkey(\buf).trace].asInteger.numFrames - 2,
-						)).play(~clock, quant: stretch);
-					}
+					},
+					{/* tasto 1*/}
 
-					{1}
+				);
+			}
+
+			{50} // al premere tasto > GREATHER THAN (maiusc + <) // PLAY SEQ
+			{
+				if(modifiers == 131072,
 					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus1;
+						//p.play; // click sound
 
-						Pdef(\playbuf_1, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
+						//q.play; // sampler
+						//Pdef(\playbuf_pdef).play;
+						~pdefs_play = switch
+						(~numeroCorrente.value.asString.asInteger)
+						{1} {Pdef(\playbuf_1).play(~clock, quant:~stretch); "UNO".postln;}
+						{2} {Pdef(\playbuf_2).play(~clock, quant:~stretch); "DUE".postln;}
+						{3} {Pdef(\playbuf_3).play(~clock, quant:~stretch); "TRE".postln;}
+						{4} {Pdef(\playbuf_4).play(~clock, quant:~stretch); "QUATTRO".postln;}
+						{5} {Pdef(\playbuf_5).play(~clock, quant:~stretch); "CINQUE".postln;}
+						{6} {Pdef(\playbuf_6).play(~clock, quant:~stretch); "SEI".postln;}
+						{7} {Pdef(\playbuf_7).play(~clock, quant:~stretch); "SETTE".postln;}
+						{8} {Pdef(\playbuf_8).play(~clock, quant:~stretch); "OTTO".postln;}
+						{9} {Pdef(\playbuf_9).play(~clock, quant:~stretch); "NOVE".postln;}
+						{0} {Pdef(\playbuf_0).play(~clock, quant:~stretch); "DIECI".postln;};
 
-					}
-					{2}
+
+						"PLAY|".postln;
+					},
+					{}
+
+				);
+			}
+
+			{10} // al premere tasto | VERTICAL LINE (maiusc + \) // STOP SEQ
+			//{24} // al premere tasto _ UNDERSCORE (maiusc + -) // STOP
+			{
+				if(modifiers == 131072,
 					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus2;
 
-						Pdef(\playbuf_2, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
-					}
-					{3}
-					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus3;
-
-						Pdef(\playbuf_3, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
-					}
-					{4}
-					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus4;
-
-						Pdef(\playbuf_4, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
-					}
-					{5}
-					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus5;
-
-						Pdef(\playbuf_5, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-					)).play(~clock, quant: stretch);
-					}
-					{6}
-					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus6;
-
-						Pdef(\playbuf_6, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
-					}
-					{7}
-					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus7;
-
-						Pdef(\playbuf_7, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
-					}
-					{8}
-					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus8;
-
-						Pdef(\playbuf_8, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
-					}
-					{9}
-					{
-						var stretch, durataLinea, sequence_type_1, attack, release, rate, bus;
-						stretch=~stretch; durataLinea=~durataLinea; sequence_type_1=~sequence_type_1;
-						attack=~attack; release=~release; rate=~rate;
-						bus=~bus9;
-
-						Pdef(\playbuf_9, Pbind(
-							\instrument, Pfunc{|ev|if (ev.buf.numChannels == 1)
-								{\playbuf_test_mono} {\playbuf_test_stereo}},
-							\stretch, stretch,
-							\dur, Pseq(durataLinea, inf),
-							\buf, Pseq(sequence_type_1, inf),
-							\rel, Pseq([release], inf),
-							\atk, Pseq([attack], inf),
-							\rate, Pseq([rate], inf),
-							\out, Pseq([bus], inf),
-						)).play(~clock, quant: stretch);
-					};
-				},
-				{});
-
-			"> > > > EXECUTE "++~numeroCorrente.asString.postln;
-			~punct_cache = []; // svuota cache punteggiatura
+						// se premi STOP con un NUMERO prima, stoppa
+						// Pdef(\playbuf_++NUMERO.asString)
+						// altrimenti, by default stoppa NUMERO UNO
 
 
-			~tempo=~bpm;
-			~measure=~division;
-			~stretch = 60/~tempo*~measure;
-			~numSpeakers=(~outs/2)-1;
-
-			~parolaDurate = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
-			~indici_parola = [];
-			~punct_cache = [];
-		}
-
-		// PUNTEGGIATURA: aggiunge rests alla cache ~punt_cache. viene concatenata alla linea
-		{43} // al premere VIRGOLA / PUNTO E VIRGOLA
-		{
-			if(modifiers==131072,
-				{ // se maiusc, punto e virgola (1/4)
-					~punct_cache = ~punct_cache.add(Rest((1/4)*~fattore_tempo)).flatten;
-				},
-				{ // altrimenti è virgola (1/16)
-					~punct_cache = ~punct_cache.add(Rest((1/16)*~fattore_tempo)).flatten;
-				}
-			);
-		}
-
-		{47} // al premere PUNTO / DUE PUNTI
-		{
-			if(modifiers==131072,
-				{ // se maiusc allora è due punti (1/8)
-					~punct_cache = ~punct_cache.add(Rest((1/8)*~fattore_tempo)).flatten;
-				},
-				{ // altrimenti è punto (1)
-					~punct_cache = ~punct_cache.add(Rest(1*~fattore_tempo)).flatten;
-				}
-			);
-		}
-
-
-
-
-		{30} // al premere + PLUS) // RESET PHRASE
-		//{42} // al premere + PLUS) // RESET PHRASE
-		{
-			~durataLinea = []; // resetta array composito di tutta la riga quando premi invio
-			~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
-			~lista_indici = []; // resetta array sequenza di simboli
-			~sequence_type_1 = [];
-			~punct_cache = [];
-			"RESET".postln;
-		}
-
-		{nil} {"--".postln}
-
-
-		{27} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
-		//{30} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
-		{
-			if(modifiers == 131072,
-				{
-					"punto interrogativo".postln;
-					~punct_cache = ~punct_cache.add((
-						[1/6, Rest(1/6), 1/6, 1/6, Rest(1/6), 1/6]
-						.flatten)*~fattore_tempo).flatten;
-				},
-
-				{ // al premere solo APOSTROFO ( ' ) // devi riuscire a includere l', degl', dell', un', d', gl
-					//"apostrofo".postln
-
-				}
-			);
-		}
-
-
-		{18} // al premere PUNTO ESCLAMATIVO ( maiusc + 1 )
-		{
-			if(modifiers == 131072,
-				{
-					"punto esclamativo".postln;
-					~punct_cache = ~punct_cache.add([1/12, 1/12, 1/12]*~fattore_tempo).flatten;
-
-				},
-				{/* tasto 1*/}
-
-			);
-		}
-
-		{50} // al premere tasto > GREATHER THAN (maiusc + <) // PLAY SEQ
-		{
-			if(modifiers == 131072,
-				{
-					//p.play; // click sound
-
-					//q.play; // sampler
-					//Pdef(\playbuf_pdef).play;
-					~pdefs_play = switch
-					(~numeroCorrente.value.asString.asInteger)
-					{1} {Pdef(\playbuf_1).play(~clock, quant:~stretch); "UNO".postln;}
-					{2} {Pdef(\playbuf_2).play(~clock, quant:~stretch); "DUE".postln;}
-					{3} {Pdef(\playbuf_3).play(~clock, quant:~stretch); "TRE".postln;}
-					{4} {Pdef(\playbuf_4).play(~clock, quant:~stretch); "QUATTRO".postln;}
-					{5} {Pdef(\playbuf_5).play(~clock, quant:~stretch); "CINQUE".postln;}
-					{6} {Pdef(\playbuf_6).play(~clock, quant:~stretch); "SEI".postln;}
-					{7} {Pdef(\playbuf_7).play(~clock, quant:~stretch); "SETTE".postln;}
-					{8} {Pdef(\playbuf_8).play(~clock, quant:~stretch); "OTTO".postln;}
-					{9} {Pdef(\playbuf_9).play(~clock, quant:~stretch); "NOVE".postln;}
-					{0} {Pdef(\playbuf_0).play(~clock, quant:~stretch); "DIECI".postln;};
-
-
-					"PLAY|".postln;
-				},
-				{}
-
-			);
-		}
-
-		{10} // al premere tasto | VERTICAL LINE (maiusc + \) // STOP SEQ
-		//{24} // al premere tasto _ UNDERSCORE (maiusc + -) // STOP
-		{
-			if(modifiers == 131072,
-				{
-
-					// se premi STOP con un NUMERO prima, stoppa
-					// Pdef(\playbuf_++NUMERO.asString)
-					// altrimenti, by default stoppa NUMERO UNO
-
-
-					t.currentLine.size.do{
-						arg i;
-						if( t.currentLine[i].asString
-							.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;)
-							.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $().reject(_ == $))
-							.reject(_ == $|).reject(_ == $>).reject(_ == $=).reject(_ == $:).reject(_ == $+)
-							.interpret.isNumber
-							&& t.currentLine[i].asString.interpret.isNil.not,
-							{
-								~numeroCorrente = t.currentLine[i];
-								~numeroCorrente.postln;
-								~pdefs_stop = switch
-								(~numeroCorrente.value.asString.asInteger)
-								{1} {Pdef(\playbuf_1).stop;}
-								{2} {Pdef(\playbuf_2).stop;}
-								{3} {Pdef(\playbuf_3).stop;}
-								{4} {Pdef(\playbuf_4).stop;}
-								{5} {Pdef(\playbuf_5).stop;}
-								{6} {Pdef(\playbuf_6).stop;}
-								{7} {Pdef(\playbuf_7).stop;}
-								{8} {Pdef(\playbuf_8).stop;}
-								{9} {Pdef(\playbuf_9).stop;}
-								{0} {Pdef(\playbuf_0).stop;};
-								~numeroCorrente= nil;
-							},
-							{
-								~numeroCorrente = nil;
-								Pdef(\playbuf_1).stop;
-								Pdef(\playbuf_2).stop;
-								Pdef(\playbuf_3).stop;
-								Pdef(\playbuf_4).stop;
-								Pdef(\playbuf_5).stop;
-								Pdef(\playbuf_6).stop;
-								Pdef(\playbuf_7).stop;
-								Pdef(\playbuf_8).stop;
-								Pdef(\playbuf_9).stop;
-								Pdef(\playbuf_0).stop;
-							}
-						);
-					};
-					"STOP|".postln;
-				},
-			);
-		}
-
-		{26} // al premere il tasto / (SLASH) (maiusc+7) // CLOSE EXPRESSION
-		{
-			if(modifiers == 131072,
-				{
-					var compile;
-
-					~sideQuest = 0;
-					~durataLinea = []; // resetta array composito di tutta la riga quando premi invio
-					~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
-					~lista_indici = []; // resetta array sequenza di simboli
-					~sequence_type_1 = [];
-					~punct_cache = [];
-					~currentLine = [];
-					"close expression".postln;
-					// ~command is the current command to be compiled
-					~command = t.currentLine.reject(_ == $ ).reject(_ == $/).replace("@", "~"); // ripulisci tutto ciò tra @ e / e rimuovi estremi
-					//~command = ~command++";";
-					compile = ~command.interpret;
-
-					// evaluate these side quests after closing expression (/)
-
-					// qui mappa i mini-comandi della side quest con le variabili globali
-					// che controllano parametri musicali (lista in aggiornamento)
-					/////////////////////////////////////////////////////////
-					// PARAMETER 1: MODE SELECTION
-					// change between mode 0 and 1. updated after +
-					~param1 = switch (~mode.value)
-					{0} // Lettera-centrico
-					{~valore=0;
-						// per ogni lettera nella sillaba
-						~lettere_inSillaba.do{
-							arg j;
-							~sillabaDurate = ~sillabaDurate.insert(
-								j, (1/(~lettere_inSillaba*2)).round(0.001));
+						t.currentLine.size.do{
+							arg i;
+							if( t.currentLine[i].asString
+								.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;)
+								.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $().reject(_ == $))
+								.reject(_ == $|).reject(_ == $>).reject(_ == $=).reject(_ == $:).reject(_ == $+)
+								.interpret.isNumber
+								&& t.currentLine[i].asString.interpret.isNil.not,
+								{
+									~numeroCorrente = t.currentLine[i];
+									~numeroCorrente.postln;
+									~pdefs_stop = switch
+									(~numeroCorrente.value.asString.asInteger)
+									{1} {Pdef(\playbuf_1).stop;}
+									{2} {Pdef(\playbuf_2).stop;}
+									{3} {Pdef(\playbuf_3).stop;}
+									{4} {Pdef(\playbuf_4).stop;}
+									{5} {Pdef(\playbuf_5).stop;}
+									{6} {Pdef(\playbuf_6).stop;}
+									{7} {Pdef(\playbuf_7).stop;}
+									{8} {Pdef(\playbuf_8).stop;}
+									{9} {Pdef(\playbuf_9).stop;}
+									{0} {Pdef(\playbuf_0).stop;};
+									~numeroCorrente= nil;
+								},
+								{
+									~numeroCorrente = nil;
+									Pdef(\playbuf_1).stop;
+									Pdef(\playbuf_2).stop;
+									Pdef(\playbuf_3).stop;
+									Pdef(\playbuf_4).stop;
+									Pdef(\playbuf_5).stop;
+									Pdef(\playbuf_6).stop;
+									Pdef(\playbuf_7).stop;
+									Pdef(\playbuf_8).stop;
+									Pdef(\playbuf_9).stop;
+									Pdef(\playbuf_0).stop;
+								}
+							);
 						};
-						///////////////////////////////////////////////////////////////////////////////////////
-						// prepara anche array di buffers
-						// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-						if(	// se è ultima istanza, selezionala per durate
-							~sillabaDurate.size === ~lettere_inSillaba,
-							// trasferiscila in parolaDurate
-							{
-								~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
+						"STOP|".postln;
+					},
+				);
+			}
 
-								// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
+			{26} // al premere il tasto / (SLASH) (maiusc+7) // CLOSE EXPRESSION
+			{
+				if(modifiers == 131072,
+					{
+						var compile;
 
-								// prepara anche array di buffers
-								// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-								if( // se hai una nuova sillaba..
-									~cached_pairs.keys.asArray
-									.includesEqual(~currentWord_syllables.at(i).asString)
-									.not,
-									{//.. salva una nuova associazione nel dizionario cached_pairs
+						~sideQuest = 0;
+						~durataLinea = []; // resetta array composito di tutta la riga quando premi invio
+						~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
+						~lista_indici = []; // resetta array sequenza di simboli
+						~sequence_type_1 = [];
+						~punct_cache = [];
+						~currentLine = [];
+						"close expression".postln;
+						// ~command is the current command to be compiled
+						~command = t.currentLine.reject(_ == $ ).reject(_ == $/).replace("@", "~"); // ripulisci tutto ciò tra @ e / e rimuovi estremi
+						//~command = ~command++";";
+						if(~command.isNil.not && ~command.asString != "|", {compile=~command.interpret}, {"nil.".postln});
+						//compile = ~command.interpret;
 
-										// sample picked random from the assignable set
-										~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+						// evaluate these side quests after closing expression (/)
 
-										// crea associazione sillaba corrente (nuova)
-										~cached_pairs = ~cached_pairs.put(
-											~currentWord_syllables.at(i).asString,
-											~bingo_sample_num);
-										// finally, remove the random picked sample number from the set of assignable samples;
-										~assignable_samples.remove(~bingo_sample_num);
-										"nuova sillaba aggiunta".postln;
+						// qui mappa i mini-comandi della side quest con le variabili globali
+						// che controllano parametri musicali (lista in aggiornamento)
+						/////////////////////////////////////////////////////////
+						// PARAMETER 1: MODE SELECTION
+						// change between mode 0 and 1. updated after +
+						~param1 = switch (~mode.value)
+						{0} // Lettera-centrico
+						{~valore=0;
+							// per ogni lettera nella sillaba
+							~lettere_inSillaba.do{
+								arg j;
+								~sillabaDurate = ~sillabaDurate.insert(
+									j, (1/(~lettere_inSillaba*~coeff_zero)).round(~roundVal));
+							};
+							///////////////////////////////////////////////////////////////////////////////////////
+							// prepara anche array di buffers
+							// checka sillabe all'interno dell'array "unique", per cioccare l'indice
+							if(	// se è ultima istanza, selezionala per durate
+								~sillabaDurate.size === ~lettere_inSillaba,
+								// trasferiscila in parolaDurate
+								{
+									~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
 
-										// operazioni per array buffers:
-										~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-										~moltiplica_indice_copie = Array.fill(
-											~lettere_inSillaba, {~indice_sillaba}
-										);
-										~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-									},
+									// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
 
-									{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-										if(
-											~cached_pairs.keys.asArray
-											.includesEqual(~currentWord_syllables.at(i).asString),
-											{
-												// stessa roba diocan?
-												~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-												~moltiplica_indice_copie = Array.fill(
-													~lettere_inSillaba, {~indice_sillaba});
-												~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-											},
-											{"uopssss....".postln}
-										);
-									}
-								);
+									// prepara anche array di buffers
+									// checka sillabe all'interno dell'array "unique", per cioccare l'indice
+									if( // se hai una nuova sillaba..
+										~cached_pairs.keys.asArray
+										.includesEqual(~currentWord_syllables.at(i).asString)
+										.not,
+										{//.. salva una nuova associazione nel dizionario cached_pairs
 
-							},
-						);
+											// sample picked random from the assignable set
+											~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
 
-						if(	// se è ultima istanza, selezionala per durate
-							~sillabaDurate.size === ~lettere_inSillaba,
-							// trasferiscila in parolaDurate
-							{
-								~parolaDurate = ~parolaDurate.add(
-									~sillabaDurate*~fattore_tempo)
-							},
-						);
-					}
+											// crea associazione sillaba corrente (nuova)
+											~cached_pairs = ~cached_pairs.put(
+												~currentWord_syllables.at(i).asString,
+												~bingo_sample_num);
+											// finally, remove the random picked sample number from the set of assignable samples;
+											~assignable_samples.remove(~bingo_sample_num);
+											"nuova sillaba aggiunta".postln;
 
-					{1} // Sillaba-centrico
-					{~valore=1;
-						// essenzialmente mette solo un valore di durata denetro sillabaDurate
-						~sillabaDurate = ~sillabaDurate.add(~lettere_inSillaba*0.125);
-						~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
-						//////////////////////////////////////////////////////////////////////
+											// operazioni per array buffers:
+											~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+											~moltiplica_indice_copie = Array.fill(
+												~lettere_inSillaba, {~indice_sillaba}
+											);
+											~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+										},
 
-						// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
+										{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
+											if(
+												~cached_pairs.keys.asArray
+												.includesEqual(~currentWord_syllables.at(i).asString),
+												{
+													// stessa roba diocan?
+													~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+													~moltiplica_indice_copie = Array.fill(
+														~lettere_inSillaba, {~indice_sillaba});
+													~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+												},
+												{"uopssss....".postln}
+											);
+										}
+									);
 
-						// prepara anche array di buffers
-						// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-						//~now = ~currentWord_syllables.at(i).asString;
-						if( // se hai una nuova sillaba..
-							~cached_pairs.keys.asArray
-							.includesEqual(~currentWord_syllables.at(i).asString)
-							.not,
-							{//.. salva una nuova associazione nel dizionario cached_pairs
+								},
+							);
 
-								// sample picked random from the assignable set
-								~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
-								// crea associazione sillaba corrente (nuova)
-								~cached_pairs = ~cached_pairs.put(
-									~currentWord_syllables.at(i).asString,
-									~bingo_sample_num);
-								// finally, remove the random picked sample number from the set of assignable samples;
-								~assignable_samples.remove(~bingo_sample_num);
-								"nuova sillaba aggiunta".postln;
+							if(	// se è ultima istanza, selezionala per durate
+								~sillabaDurate.size === ~lettere_inSillaba,
+								// trasferiscila in parolaDurate
+								{
+									~parolaDurate = ~parolaDurate.add(
+										~sillabaDurate*~fattore_tempo)
+								},
+							);
+						}
 
-								// operazioni per array buffers:
-								~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-								~moltiplica_indice_copie = Array.fill(
-									~lettere_inSillaba, {~indice_sillaba}
-								);
-								~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-							},
+						{1} // Sillaba-centrico
+						{~valore=1;
+							// essenzialmente mette solo un valore di durata denetro sillabaDurate
+							~sillabaDurate = ~sillabaDurate.add(~lettere_inSillaba*0.125);
+							~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
+							//////////////////////////////////////////////////////////////////////
 
-							{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-								if(
-									~cached_pairs.keys.asArray
-									.includesEqual(~currentWord_syllables.at(i).asString),
-									{
-										// stessa roba diocan?
-										~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-										~moltiplica_indice_copie = Array.fill(
-											~lettere_inSillaba, {~indice_sillaba});
-										~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-									},
-									{"uopssss....".postln}
-								);
-							}
-						);
-					}
+							// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
 
+							// prepara anche array di buffers
+							// checka sillabe all'interno dell'array "unique", per cioccare l'indice
+							//~now = ~currentWord_syllables.at(i).asString;
+							if( // se hai una nuova sillaba..
+								~cached_pairs.keys.asArray
+								.includesEqual(~currentWord_syllables.at(i).asString)
+								.not,
+								{//.. salva una nuova associazione nel dizionario cached_pairs
 
-					{nil} {"nil param1".postln};
+									// sample picked random from the assignable set
+									~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+									// crea associazione sillaba corrente (nuova)
+									~cached_pairs = ~cached_pairs.put(
+										~currentWord_syllables.at(i).asString,
+										~bingo_sample_num);
+									// finally, remove the random picked sample number from the set of assignable samples;
+									~assignable_samples.remove(~bingo_sample_num);
+									"nuova sillaba aggiunta".postln;
 
+									// operazioni per array buffers:
+									~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+									~moltiplica_indice_copie = Array.fill(
+										~lettere_inSillaba, {~indice_sillaba}
+									);
+									~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+								},
 
-					///////////////////////////////////////////////////
-					// PARAMETER 2: FATTORE TEMPO (0-2)
-					~param2 = ~tFact;
-					~fattore_tempo = ~param2.clip(0.1,4);
-
-					"fattore tempo: "++~fattore_tempo.postln;
-					////////////////////////////////////////////////////
-					// PARAMETER 3: RELEASE BUF PLAYER (0.2 - 5)
-					~param3 = ~rel;
-					~release = ~rel.clip(0.2, 5);
-
-					"release: "++~release.asString.postln;
-					////////////////////////////////////////////////////
-					// PARAMETER 4: ATK BUF PLAYER (0.01 - 4)
-					~param4 = ~atk;
-					~attack = ~atk.clip(0.01, 4);
-
-					"attack: "++~attack.asString.postln;
-
-					////////////////////////////////////////////////////
-					// PARAMETER 5: RATE [-12, 12; default 1, reverse -1]
-
-					~param5 = ~rate;
-
-					"rate: "++~rate.asString.postln;
-
-					////////////////////////////////////////////////////
-					// PARAMETER 6: TEMPO (10..500); default 120
-					~param6 = ~bpm;
-					~tempo = ~param6;
-
-					"tempo: "++~tempo.asString.postln;
-
-					////////////////////////////////////////////////////
-					// PARAMETER 7: MEASURE (1..16); default 4
-
-					~param7 = ~division;
-					~measure = ~param7;
-					/////////////////////////////////////
-					~stretch = (60/~tempo)*~measure;
-
-					"measure: "++~measure.asString.postln;
-					////////////////////////////////////////////////////
-					// PARAMETER 8: LANGUAGE ["it", "en", "es", "is" etc.]; default "it"
-
-					~param8 = ~lang;
-					~language = ~param8;
-					/////////////////////////////////////////////////
-					// PARAMETER 9: NUMBER OF SPEAKER OUTPUTS (FOR SMEKKLEYSA 4-SPEAKERS SETUP)
-					// remember to boot the server with numChannels = 4;
-					// in SillyCode, outs can be 2 (default) or 4.
-					~param9 = ~outs;
-					~numSpeakers = (~param9/2)-1;
+								{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
+									if(
+										~cached_pairs.keys.asArray
+										.includesEqual(~currentWord_syllables.at(i).asString),
+										{
+											// stessa roba diocan?
+											~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
+											~moltiplica_indice_copie = Array.fill(
+												~lettere_inSillaba, {~indice_sillaba});
+											~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
+										},
+										{"uopssss....".postln}
+									);
+								}
+							);
+						}
 
 
-				},
-				{}
+						{nil} {"nil param1".postln};
+
+
+						///////////////////////////////////////////////////
+						// PARAMETER 2: FATTORE TEMPO (0-2)
+						~param2 = ~tFact;
+						~fattore_tempo = ~param2.clip(0.1,4);
+
+						"fattore tempo: "++~fattore_tempo.postln;
+						////////////////////////////////////////////////////
+						// PARAMETER 3: RELEASE BUF PLAYER (0.2 - 5)
+						~param3 = ~rel;
+						~release = ~rel.clip(0.2, 5);
+
+						"release: "++~release.asString.postln;
+						////////////////////////////////////////////////////
+						// PARAMETER 4: ATK BUF PLAYER (0.01 - 4)
+						~param4 = ~atk;
+						~attack = ~atk.clip(0.01, 4);
+
+						"attack: "++~attack.asString.postln;
+
+						////////////////////////////////////////////////////
+						// PARAMETER 5: RATE [-12, 12; default 1, reverse -1]
+
+						~param5 = ~rate;
+
+						"rate: "++~rate.asString.postln;
+
+						////////////////////////////////////////////////////
+						// PARAMETER 6: TEMPO (10..500); default 120
+						~param6 = ~bpm;
+						~tempo = ~param6;
+
+						"tempo: "++~tempo.asString.postln;
+
+						////////////////////////////////////////////////////
+						// PARAMETER 7: MEASURE (1..16); default 4
+
+						~param7 = ~division;
+						~measure = ~param7;
+						/////////////////////////////////////
+						~stretch = (60/~tempo)*~measure;
+
+						"measure: "++~measure.asString.postln;
+						////////////////////////////////////////////////////
+						// PARAMETER 8: LANGUAGE ["it", "en", "es", "is" etc.]; default "it"
+
+						~param8 = ~lang;
+						~language = ~param8;
+						/////////////////////////////////////////////////
+						// PARAMETER 9: NUMBER OF SPEAKER OUTPUTS (FOR SMEKKLEYSA 4-SPEAKERS SETUP)
+						// remember to boot the server with numChannels = 4;
+						// in SillyCode, outs can be 2 (default) or 4.
+						~param9 = ~outs;
+						~numSpeakers = (~param9/2)-1;
+
+
+					},
+					{}
+				);
+			}
+
+			{41} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
+			//{12} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
+			{
+				if(modifiers == 524288,
+					{
+						~sideQuest = 1;
+						"open expression".postln;
+					},
+					//{"no".postln}
+
+				);
+			}
+
+			{} {};
+			// fine azioni assegnate
+
+
+			if(
+				~sideQuest == 1,
+				{"still side questin dude".postln},
+				{if(~sideQuest == 0, {"no side questn"})}
+
 			);
-		}
-
-		{41} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
-		//{12} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
-		{
-			if(modifiers == 524288,
-				{
-					~sideQuest = 1;
-					"open expression".postln;
-				},
-				//{"no".postln}
-
-			);
-		}
-
-		{} {};
-		// fine azioni assegnate
-
-
-		if(
-			~sideQuest == 1,
-			{"still side questin dude".postln},
-			{if(~sideQuest == 0, {"no side questn"})}
-
-		);
 
 
 
-	};
+		};
 
 	// quando ci sono più di n righe, cancella tutto
 
 	w.front;
 };
+
+
+defer{
+fork{
+	1.do{
+		1.wait;
+		~aa.();
+		1.wait;
+		~bb.();
+		3.wait;
+		~cc.();
+		/*5.wait;
+		~dd.();
+		if(Server.allBootedServers.isEmpty.not,
+			{~dd.();},
+			{":( could not initialise SillyCode. try executing the program again"}
+		);*/
+	}
+};
+}
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////
