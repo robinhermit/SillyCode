@@ -1,3 +1,3 @@
 # SillyCode
 ## live-coding interface for real-time text sonification
-currently works in Italian only
+see multi-lang for current version (2024)
