@@ -1,4 +1,4 @@
-~execute.(); // this line has to be executed after the rest
+~execute.(); // this block has to be executed after the rest
 
 ( // FIRST EXECUTE THIS BLOCK (wait until server is booted)
 ~aa = {
@@ -211,7 +211,7 @@
 
 		~sounds = Array.new;
 
-		folder = PathName.new(thisProcess.nowExecutingPath.dirname+/+"Samples");
+		folder = PathName.new(thisProcess.nowExecutingPath.dirname+/+"Sounds");
 		folder.entries.scramble.do({
 			arg path;
 			var soundfile, framerate, hopsize;
