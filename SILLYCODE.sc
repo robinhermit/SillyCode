@@ -1,27 +1,25 @@
-Server.default.options.device = "Built-in Output";
-Server.default.options.device = "BlackHole 2ch";
-Server.default.options.device = "Scarlett 18i20 USB";
-s.reboot;
-Server.killAll;
-SerialPort.closeAll;
+~execute.(); // this block has to be executed after the rest
 
-(
+( // FIRST EXECUTE THIS BLOCK (wait until server is booted)
 ~aa = {
-	// give it a few seconds to process this
 
-	~get_sylabs = {|language, input|
+	// automate this!!!!
+	var python_path = "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11";
+
+	// path to current folder
+	~path = thisProcess.nowExecutingPath.dirname;
+
+	~get_sylabs = {arg language, input;
 		format(
 			// check python path! otherwise unixCmdGetStdOut won't work
-			"/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 -c \"import pyphen; out = pyphen.Pyphen(left=1, right=1, lang='%').inserted('%'); print(out)\"",
+			python_path++" -c \"import pyphen; out = pyphen.Pyphen(left=1, right=1, lang='%').inserted('%'); print(out)\"",
 			language, input
-		).unixCmdGetStdOut.split($-)
+		).unixCmdGetStdOut.split($-);
 	};
-
 
 	~get_more = {|language, input|
 		format(
-			// check python path! otherwise unixCmdGetStdOut won't work
-			"/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 -c \"import pyphen; dic= pyphen.Pyphen(lang='%'); out = dic.iterate('%'); print(tuple(out))\"",
+			python_path++" -c \"import pyphen; dic= pyphen.Pyphen(lang='%'); out = dic.iterate('%'); print(tuple(out))\"",
 			language, input
 		).unixCmdGetStdOut.split($-)
 	};
@@ -29,7 +27,7 @@ SerialPort.closeAll;
 	~get_position = {|language, input|
 		format(
 			// check python path! otherwise unixCmdGetStdOut won't work
-			"/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 -c \"import pyphen; dic= pyphen.Pyphen(lang='%'); out = dic.positions('%'); print(out)\"",
+			python_path++" -c \"import pyphen; dic= pyphen.Pyphen(lang='%'); out = dic.positions('%'); print(out)\"",
 			language, input
 		).unixCmdGetStdOut.split($-)
 	};
@@ -37,25 +35,132 @@ SerialPort.closeAll;
 
 	"Parsing functions: ready.".postln;
 
-	// fake stringa di test
-	//~stringa = "Questo testo qua, come esempio";
-	~stringa = "Invisible Margaret with Wednesday vibe";
-	// inizializza con italiano
-	//~language= "it";
-		~language= "en";
+	// test string in en
+	~string = "Invisible Margaret with Wednesday vibe";
+	~language= "en";
+
+	~mode=0;
+
+	// mode engine (letter-centric, syllable-centric)
+	~mode_parser = {arg selector, current;
+		var selector_value,
+		current_value,
+		actual_switch;
+
+		selector_value = selector.value;
+		current_value = current.value;
+		actual_switch = switch(selector_value)
+		{0} // letter-centric
+		{
+			// for each letter in the syllable
+			~letters_in_syllable.do{ // put in a duration array
+				arg j;
+				~syllable_durations = ~syllable_durations.insert(
+					j, (1/(~letters_in_syllable*~coeff_lett_multiplier)).round(~roundVal) // < < < < < < FIX THIS
+				);
+			};
+
+			// get durations for durations array
+			if(	// if it's the last syllable, sample it for duration
+				~syllable_durations.size === ~letters_in_syllable,
+				// transfer it
+				{~word_durations = ~word_durations.add(~syllable_durations*~tempo_factor);
+					// check for sample/syllable associations
+					// prep buffer array
+					// look for syllables in "unique" to find idx
+					if( // if syllable is new..
+						~saved_pairs.keys.asArray
+						.includesEqual(~currentWord_syllables.at(current_value).asString)
+						.not,
+						{//.. save a new association in cached_pairs dict
+							// sample picked random from the assignable set
+							~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+							// create current syllable association
+							~saved_pairs = ~saved_pairs.put(
+								~currentWord_syllables.at(current_value).asString,
+								~bingo_sample_num);
+							// finally, remove the random picked sample number from the set of assignable samples;
+							~assignable_samples.remove(~bingo_sample_num);
+							"nuova sillaba aggiunta".postln;
+							// operations on buffers array
+							~syl_index = ~saved_pairs.at(~currentWord_syllables.at(current_value).asString);
+							~moltiplica_indice_copie = Array.fill(
+								~letters_in_syllable, {~syl_index}
+							);
+							~indici_parola = ~indici_parola.insert(current_value, ~moltiplica_indice_copie);
+						},
+						{ // if not new syllable, parse its value
+							if(
+								~saved_pairs.keys.asArray
+								.includesEqual(~currentWord_syllables.at(current_value).asString),
+								{
+									// stessa roba diocan?
+									~syl_index = ~saved_pairs.at(~currentWord_syllables.at(current_value).asString);
+									~moltiplica_indice_copie = Array.fill(
+										~letters_in_syllable, {~syl_index});
+									~indici_parola = ~indici_parola.insert(current_value, ~moltiplica_indice_copie);
+								},
+								{"uopssss....".postln}
+			)})});
+		}
+
+		{1} // syllable-centric
+		{
+			// only 1 duration value per syllable
+			~syllable_durations = ~syllable_durations.add(~letters_in_syllable*0.125);
+			~word_durations = ~word_durations.add(~syllable_durations*~tempo_factor);
+			//////////////////////////////////////////////////////////////////////
+
+			if( // new syllable..
+				~saved_pairs.keys.asArray
+				.includesEqual(~currentWord_syllables.at(current_value).asString)
+				.not,
+				{//.. save association in cached_pairs
+					// sample picked random from the assignable set
+					~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
+					~saved_pairs = ~saved_pairs.put(
+						~currentWord_syllables.at(current_value).asString,
+						~bingo_sample_num);
+					// finally, remove the random picked sample number from the set of assignable samples;
+					~assignable_samples.remove(~bingo_sample_num);
+					"nuova sillaba aggiunta".postln;
+
+					~syl_index = ~saved_pairs.at(~currentWord_syllables.at(current_value).asString);
+					~moltiplica_indice_copie = Array.fill(
+						~letters_in_syllable, {~syl_index}
+					);
+					~indici_parola = ~indici_parola.insert(current_value, ~moltiplica_indice_copie);
+				},
+
+				{ // not new syllable
+					if(
+						~saved_pairs.keys.asArray
+						.includesEqual(~currentWord_syllables.at(current_value).asString),
+						{
+							// stessa roba diocan?
+							~syl_index = ~saved_pairs.at(~currentWord_syllables.at(current_value).asString);
+							~moltiplica_indice_copie = Array.fill(
+								~letters_in_syllable, {~syl_index});
+							~indici_parola = ~indici_parola.insert(current_value, ~moltiplica_indice_copie);
+						},
+						{"uopssss....".postln}
+		)})}
+	};
 
 	"SillyCode - a live-coding environment for text sonification".postln;
 
 	Server.killAll;
+	SerialPort.closeAll;
+
 };
 
 //////////////////////
 
 ~bb = {
-	// ready to go! now you only have to insert a word here as string. if it doesn't exist, it'll print nil, otherwise it'll print the correct hyphenation
+
 	// test function
 
-	x = ~get_sylabs.(~language, ~stringa).do(_.postln);
+	x = ~get_sylabs.(~language, ~string).do(_.postln);
 	if(
 		x.isNil.not, {
 			" >>> first-choice function setup!! <<<".postln;
@@ -63,7 +168,7 @@ SerialPort.closeAll;
 	});
 
 
-	y = ~get_more.(~language, ~stringa).do(_.postln);
+	y = ~get_more.(~language, ~string).do(_.postln);
 	if( y.isNil.not
 		&& y.isArray
 		&& y.size > 0,
@@ -72,25 +177,22 @@ SerialPort.closeAll;
 			// splitta in get_more indexes (split positions)
   	});
 
-	z = ~get_position.(~language, ~stringa).do(_.postln);
+	z = ~get_position.(~language, ~string).do(_.postln);
 	if( z.isNil.not
 		&& z.isArray
 		&& z.size > 0,
 	{
-			" >>> positions <<<".postln;
+			" >>> positions setup!!! <<<".postln;
 			// splitta in get_more indexes (split positions)
 		z.postln;
 	});
 };
 
-~cc = {
-
-	// server operations
-
+~cc = {// server operations
 	//Server.default.options.device = "BlackHole 2ch";
-	Server.default.options.device = "Scarlett 18i20 USB";
-	//Server.default.options.inDevice = "Built-in Input";
-	//Server.default.options.outDevice = "Built-in Output";
+	//Server.default.options.device = "Scarlett 18i20 USB";
+	Server.default.options.inDevice = "Built-in Input";
+	Server.default.options.outDevice = "Built-in Output";
 	Server.default.options.sampleRate = 44100;
 	s.options.numOutputBusChannels = 4; // 4 out hardware chs (use ~outs to set actual routing)
 	s.options.numBuffers = 20000; // then reboot to save the changee
@@ -102,17 +204,14 @@ SerialPort.closeAll;
 
 		var sounds, folder;
 
-		// DON'T USE LETTERS: THEYRE GONNA BE INTERPRETED AS NUMBERS IN SILLYCODE!!!!!
-		// REPLACE f AND h WITH SOMETHING LIKE ~frameSize and ~hopSize
 		~fft_frameSize = 512; // fft analysis frame size
 		~fft_hopSize = 0.25; // hop size
 
 		Buffer.freeAll;
+
 		~sounds = Array.new;
-		// folder = PathName.new("/Users/Robin/Desktop/TUTTO/ATTIVI/SillyCode/Samples/");
-		folder = PathName.new(thisProcess.nowExecutingPath.dirname+/+"Sounds");
-		// need to increase max buf number (1024)
-		//~folderEntries
+
+		folder = PathName.new(thisProcess.nowExecutingPath.dirname+/+"Samples");
 		folder.entries.scramble.do({
 			arg path;
 			var soundfile, framerate, hopsize;
@@ -121,15 +220,10 @@ SerialPort.closeAll;
 			framerate = ~fft_frameSize;
 			hopsize = ~fft_hopSize;
 
-/*			~fft_data = ~fft_data.add(Buffer.alloc(s,
-				soundfile.duration.calcPVRecSize(
-					~fft_frameSize,~fft_hopSize
-			))); // buffers allocated to store FFT data*/
-
 			~sounds = ~sounds.add(Buffer.readChannel(s, path.fullPath, channels: [0]));
 		});
 
-
+		// allocate buffer for live granulation
 		~grain_storage = Buffer.alloc(s, s.sampleRate*3);
 		~grain_storage.zero;
 
@@ -147,23 +241,15 @@ SerialPort.closeAll;
 
 		// other busses
 		~master_bus = Bus.audio(s,4);
-		//~rear_bus = Bus.audio(s,2);
 		~fs_buf = Bus.audio(s,4);
 		~grain_buf = Bus.audio(s,4);
 		~rev_bus = Bus.audio(s,4);
 
+		// groups used in granulation
 		~group1 = Group.new; // group for loops 0,1,2
 		~group2 = Group.new(~group1, \addAfter); // group for loops 3,4,5
 		~group3 = Group.new(~group2, \addAfter); // group for loops 6,7,8,9
-/*
-		SynthDef(\click, {
-			arg freq=100;
-			var sig;
-			sig = Ringz.ar(Impulse.ar(0.1), [freq, freq+1], 0.1) * Line.ar(1,0,0.1,1,0,2);
-			sig = LPF.ar(sig, 150);
-			Out.ar(0, sig);
-		}).add;
-*/
+
 		SynthDef.new(\playbuf_test_stereo, { // versione classica
 			arg amp = 1, out = 0, outFreeze=0, buf,
 			rate = 1, t_trig = 1, start = 0,
@@ -197,7 +283,6 @@ SerialPort.closeAll;
 			// outputs
 			Out.ar(out, sig);
 			//Out.ar(outFreeze, IFFT(chain, 1).dup);
-
 		}).add;
 
 		SynthDef.new(\channelBus, { // ten instances, one for each pattern
@@ -215,7 +300,6 @@ SerialPort.closeAll;
 			sig = Normalizer.ar(input, 0.7, 0.01);
 			dist = InsideOut.ar(input);
 			//ampmap = Amplitude.ar(dist, 0.01, 0.1);
-
 			// sum
 			sig = ((sig*(1-crushAmt)) + (dist*crushAmt));
 
@@ -224,8 +308,7 @@ SerialPort.closeAll;
 			// filter eq
 			sig = HPF.ar(sig, lowcut.lag(0.1)); // add lowcut filter
 			sig = LPF.ar(sig, hicut);// add hicut filter
-
-			//sig = Limiter.ar(sig, 0.65, 0.05);
+		//sig = Limiter.ar(sig, 0.65, 0.05);
 
 			sig = sig * 0.5;
 
@@ -236,14 +319,12 @@ SerialPort.closeAll;
 				sig[0]*sp3_amt,
 				sig[1]*sp4_amt,
 			];
-
 			sig = main_sig;
 
 			Out.ar(dryBus, sig*dryAmt);
 			Out.ar(fsBus, sig*fsAmt);
 			Out.ar(revBus, sig*revAmt);
 			Out.ar(grainBus, sig*grainAmt);
-
 		}).add;
 
 		SynthDef.new(\reverb, {
@@ -270,7 +351,6 @@ SerialPort.closeAll;
 			) *amp;
 			sig = HPF.ar(sig, hpfreq);
 			sig = Limiter.ar(sig, 0.6, 0.05);
-
 
 			main_sig = [
 				sig[0]*sp1_amt,
@@ -351,42 +431,12 @@ SerialPort.closeAll;
 			Out.ar(out, sig);
 		}).add;
 
-
 		SynthDef.new(\master, {
 			arg in = 0, main_out = 0;
 			var sig, main_sig;
 			sig = In.ar(in, 4);
 			Out.ar(main_out, sig);
 		}).add;
-
-		// analyse and store samples in fft buffers
-
-/*		SynthDef.new(\pv_rec, {// RECBUF IS THE DESTINATION BUFFER (in ~fft_data collection)
-			arg recBuf=1, soundBufnum=2,  // SOUND TO ANALYSE (each in ~sounds)
-			framesize = ~fft_frameSize, hopsize = ~fft_hopSize;
-			var input, chain, bufnum;
-			bufnum = LocalBuf.new(framesize);
-			Line.kr(1,1,BufDur.kr(soundBufnum), doneAction:2);
-			input = PlayBuf.ar(1, soundBufnum, BufRateScale.kr(soundBufnum), loop:0);
-			chain = FFT(bufnum, input, hopsize, 1);
-			chain = PV_RecordBuf(chain, recBuf, 0,1,0,hopsize,1);
-		}).add;
-
-		// FFT analysis of all samples
-		fork{
-			~sounds.do{
-				arg item, i;
-				var currentDestination, currentSource;
-				currentDestination = ~fft_data[i];
-				currentSource = ~sounds[i];
-				Synth(\pv_rec, [\recBuf, currentDestination.bufnum, \soundBufnum, currentSource.bufnum], addAction: 'addToTail');
-				s.sync;
-				// takes some time to free all the synths (5 min)
-			}
-		}*/
-		// this works but takes a bunch
-		// continue adding PV_BufRd (con un pointer) o PV_PlayBuf (come sopra ma no freeze)
-
 	};
 
 	"server booted!".postln;
@@ -397,7 +447,7 @@ SerialPort.closeAll;
 // G U I   F U N C T I O N S //////////////////////////////////////
 /////////////////////////////////////////////////7
 
-~dd = {
+~execute = { // maian function executed manually after all this has been compiled
 
 	var scale, trig_threshold, // GUI and matrix properties
 	range_min, range_max,
@@ -454,35 +504,17 @@ SerialPort.closeAll;
 	~ch9 = Synth.new(\channelBus, [
 		\in, ~bus9, \dryBus, ~master_bus, \revBus, ~rev_bus, \fsBus, ~fs_bus, \grainBus, ~grain_bus,], ~group3);
 
-
-
-	if( // SALVATAGGIO AUTOMATICO DEL TESTO SE C'è QUALCOSA DI SCRITTO
-		t.notNil,
-		{
-			var file,date;
-			date = Date.getDate.format("%Y%m%d_%H%M");
-			file = File.new(thisProcess.nowExecutingPath.dirname+/+"Saved"+/+"SillyCode_sweater"++date++".txt", "w");
-			file.write(t.string.asString);
-			file.close;
-			"testo salvato".postln;
-		},
-		{"testo vuoto".postln}
-	);
-
-
-
 	// resetta parametri temporali, crea tempoclock
 	~tempo = 120; ~bpm=120;
 	~measure = 4; ~division=4;
 	~stretch = (60/~tempo)*~measure;
+	~rate = 1;
 
 	// resetta numero speakers (4 outs are always open, but usually not used unless
 	// the side quest @outs=4/
 	~numSpeakers = 0; ~outs = 2;
 
-	//
 	~clock = TempoClock.new(~tempo/60);
-
 	~numeroCorrente=0;
 
 	Pdef(\playbuf_1, Pbind(\instrument, \playbuf_test_stereo, \amp, 0)).play(~clock, quant:~stretch);
@@ -507,13 +539,8 @@ SerialPort.closeAll;
 	Pdef(\playbuf_0).fadeTime = 1;
 
 	// resetta parametri Side Quest
-	~fattore_tempo = 1; ~tFact=1;
+	~tempo_factor = 1; ~tFact=1;
 	~modeSelector = 0; ~mode=0;
-	/*
-	~tempo = 120; ~bpm=120;
-	~measure = 4; ~division=4;
-	~stretch = (60/~tempo)*~measure;
-	*/
 	~attack = 0.01; ~atk=0.01;
 	~release = 0.5; ~rel=0.5;
 	~rate = 1;
@@ -536,441 +563,48 @@ SerialPort.closeAll;
 		height: Window.screenBounds.height
 	)).front; // main window
 	w.background_(Color.gray(0));
+
+	w.onClose_({
+		if( // SALVATAGGIO AUTOMATICO DEL TESTO SE C'è QUALCOSA DI SCRITTO
+			t.string.asString.notNil,
+			{
+				var file,date;
+				date = Date.getDate.format("%Y%m%d_%H%M");
+				//~path = thisProcess.nowExecutingPath;
+				file = File.new(~path+/+"Saved"+/+"SillyCode_"++date++".txt", "w");
+				file.write(t.string.asString);
+				file.close;
+				"testo salvato".postln;
+			},
+			{"testo vuoto".postln}
+		);
+	});
+
 	z = PdefAllGui(11);
 	s.meter;
 
-/*
 
 
-
-	// this task updates the GUI at 20ms rate (slower than arduino readings)
-	Tdef(\colorControl, {
-		loop{
-
-			var colScope, tempRevAvg1, tempRevAvg2, tempFsAvg,
-			col_L, col_R, col_l, col_r,
-			speaker1, speaker2, speaker3, speaker4,
-			sp1_avg, sp2_avg, sp3_avg, sp4_avg,
-			grain_duration, ratescale,
-			sweater_scale;
-			var coor_coll = [];
-			~coor_coll = nil;
-
-			// FXs CONTROL
-			// sort res[] columns from matrix and parse values to playbuf friendly array
-
-			// rev controls
-			middleRow = ((rows* (columns/2).round) - rows).asInteger; // first index of middle row
-			threeQuarters = (~res.size)-(5*rows).asFloat; // first index of basically row 10 or smt
-
-
-
-/*			rowStart = index*rows;
-			rowEnd = (index*rows)+(rows-1);
-			// raw values coming from arduino, in the current chunk
-			scope = ~res[rowStart..rowEnd];*/
-
-			// define pan columns (L and R = main; l and r = rear)
-			// on the matrix
-			col_L = ~res[(rows*4)..(rows*4)+9];
-			col_R = ~res[((rows*12)+1)..((rows*12)+10)];
-			col_l = ~res[(rows*5)..((rows*5)+9)];
-			col_r = ~res[((rows*13)+1)..((rows*13)+10)];
-
-			if(~numSpeakers == 0 ,
-				{ // se outs è uguale a 2,
-					// default stereo settings
-					speaker1 = Array.fill(10, 0.5);
-					sp1_avg = speaker1;
-					speaker2 = Array.fill(10, 0.5);
-					sp2_avg = speaker2;
-					speaker3 = Array.fill(10, 0);
-					sp3_avg = sp3_avg;
-					speaker4 = Array.fill(10, 0);
-					sp4_avg = speaker4;
-
-				}, {
-
-					// se outs diverso da stereo,  (deve essere 4..)
-					speaker1 = col_L.collect{
-							arg item, i;
-							item.asFloat.linlin(range_min, range_max, 0.70, 0);
-					};
-
-					sp1_avg = speaker1.sum / rows;
-
-					speaker2 = col_R.collect{
-							arg item, i;
-							item.asFloat.linlin(range_min, range_max, 0.70, 0);
-					};
-
-					sp2_avg = speaker2.sum / rows;
-
-					speaker3 = col_l.collect{
-							arg item, i;
-							item.asFloat.linlin(range_min, range_max, 0.70, 0);
-					};
-
-					sp3_avg = speaker3.sum / rows;
-
-					speaker4 =
-						col_r.collect{
-							arg item, i;
-							item.asFloat.linlin(range_min, range_max, 0.70, 0);
-					};
-
-
-					sp4_avg = speaker4.sum / rows;
-
-				}
-
-			);
-
-			~sect1_loaded = Array.new(20);
-			~sect1.do{
-				arg item, i;
-				~sect1_loaded.add(item[1]);
-			};
-			~sect1_loaded = ~sect1_loaded++Array.fill(10-~sect1.size, range_max);
-
-			~sect2_loaded = Array.new(20);
-			~sect2.do{
-				arg item, i;
-				~sect2_loaded.add(item[1]);
-			};
-			~sect2_loaded = ~sect2_loaded++Array.fill(10-~sect2.size, range_max);
-
-			~sect3_loaded = Array.new(20);
-			~sect3.do{
-				arg item, i;
-				~sect3_loaded.add(item[1]);
-			};
-			~sect3_loaded = ~sect3_loaded++Array.fill(10-~sect3.size, range_max);
-
-			~sect4_loaded = Array.new(20);
-			~sect4.do{
-				arg item, i;
-				~sect4_loaded.add(item[1]);
-			};
-			~sect4_loaded = ~sect4_loaded++Array.fill(10-~sect4.size, range_max);
-
-
-
-			// set grainamt by groups
-			if(
-				(~sec_remain.isNil.not)&&(~sec_remain.size >= 3),
-				{
-
-					~group1.set(\grainAmt, ~sec_remain[0][1].asFloat.linlin(range_min,range_max, 1,0));
-					~group2.set(\grainAmt, ~sec_remain[1][1].asFloat.linlin(range_min,range_max, 1,0));
-					~group3.set(\grainAmt, ~sec_remain[2][1].asFloat.linlin(range_min,range_max, 1,0));
-
-					~ch0.set(
-						\lowcut, ~res[0].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[0].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect3_loaded[0].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[0].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[0].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[0],
-						\sp2_amt, speaker2[0],
-					);
-
-					~ch1.set(
-						\lowcut, ~res[1].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut,~sect2_loaded[1].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+1].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect3_loaded[1].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[1].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[1].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[1],
-						\sp2_amt, speaker2[1],
-					);
-
-					~ch2.set(
-						\lowcut, ~res[2].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[2].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+2].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect3_loaded[2].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[2].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[2].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[2],
-						\sp2_amt, speaker2[2],
-					);
-
-					~ch3.set(
-						\lowcut, ~res[3].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[3].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+3].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect3_loaded[3].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[3].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[3].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[3],
-						\sp2_amt, speaker2[3],
-					);
-
-					~ch4.set(
-						\lowcut, ~res[4].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[4].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+4].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect3_loaded[4].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[4].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[4].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[4],
-						\sp2_amt, speaker2[4],
-					);
-
-					~ch5.set(
-						\lowcut, ~res[5].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[5].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+5].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect4_loaded[0].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[5].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[5].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[5],
-						\sp2_amt, speaker2[5],
-					);
-
-					~ch6.set(
-						\lowcut, ~res[6].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[6].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+6].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect4_loaded[1].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[6].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[6].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[6],
-						\sp2_amt, speaker2[6],
-					);
-
-					~ch7.set(
-						\lowcut, ~res[7].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[7].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+7].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect4_loaded[2].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[7].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[7].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[7],
-						\sp2_amt, speaker2[7],
-					);
-
-					~ch8.set(
-						\lowcut, ~res[8].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[8].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+8].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~sect4_loaded[3].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[8].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[8].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[8],
-						\sp2_amt, speaker2[8],
-					);
-
-					~ch9.set(
-						\lowcut, ~res[9].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~sect2_loaded[9].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+9].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt,~sect4_loaded[4].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~sect1_loaded[9].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~sect1_loaded[9].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[9],
-						\sp2_amt, speaker2[9],
-					);
-				},
-				{
-					~group1.set(\grainAmt, ~res[(rows*8)-1].asFloat.linlin(range_min,range_max, 1,0));
-					~group2.set(\grainAmt, ~res[(rows*7)-2].asFloat.linlin(range_min,range_max, 1,0));
-					~group3.set(\grainAmt, ~res[(rows*4)-5].asFloat.linlin(range_min,range_max, 1,0));
-
-					~ch0.set(
-						\lowcut, ~res[0].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[rows*2].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[0],
-						\sp2_amt, speaker2[0],
-					);
-
-					~ch1.set(
-						\lowcut, ~res[1].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut,~res[(~res.size-rows)+1].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+1].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+1].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+1].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+1].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[1],
-						\sp2_amt, speaker2[1],
-					);
-
-					~ch2.set(
-						\lowcut, ~res[2].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+2].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+2].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+2].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+2].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+2].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[2],
-						\sp2_amt, speaker2[2],
-					);
-
-					~ch3.set(
-						\lowcut, ~res[3].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+3].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+3].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+3].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+3].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+3].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[3],
-						\sp2_amt, speaker2[3],
-					);
-
-					~ch4.set(
-						\lowcut, ~res[4].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+4].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+4].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+4].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+4].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+4].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[4],
-						\sp2_amt, speaker2[4],
-					);
-
-					~ch5.set(
-						\lowcut, ~res[5].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+5].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+5].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+5].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+5].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+5].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[5],
-						\sp2_amt, speaker2[5],
-					);
-
-					~ch6.set(
-						\lowcut, ~res[6].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+6].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+6].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+6].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+6].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+6].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[6],
-						\sp2_amt, speaker2[6],
-					);
-
-					~ch7.set(
-						\lowcut, ~res[7].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+7].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+7].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+7].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+7].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+7].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[7],
-						\sp2_amt, speaker2[7],
-					);
-
-					~ch8.set(
-						\lowcut, ~res[8].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+8].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+8].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+8].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+8].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+8].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[8],
-						\sp2_amt, speaker2[8],
-					);
-
-					~ch9.set(
-						\lowcut, ~res[9].asFloat.linlin(range_min, range_max, 2000,20),
-						\hicut, ~res[(~res.size-rows)+9].asFloat.linlin(range_min, range_max, 2100,15000),
-						\fsAmt, ~res[threeQuarters+9].asFloat.linlin(range_min, range_max, 1,0),
-						\crushAmt, ~res[(rows*2)+9].asFloat.linlin(range_min, range_max, 0.5,0),
-						\revAmt, ~res[middleRow+9].asFloat.linlin(range_min, range_max, 0.8,0),
-						\dryAmt, ~res[middleRow+9].asFloat.linlin(range_min, range_max, 0,1),
-						\sp1_amt, speaker1[9],
-						\sp2_amt, speaker2[9],
-					);
-				}
-			);
-
-			// some operations to calculate the averatge of sme of the columns
-
-			// frequency shifter param (fshift)
-			tempFsAvg = ~sect4_loaded.sum{arg i; i.asFloat};
-			tempFsAvg = tempFsAvg / ~sect4_loaded.size;
-			tempFsAvg = tempFsAvg.linlin(range_min, range_max, 200, 0.4);
-
-			// rev params (room size / decay)
-			// room size
-			tempRevAvg1 = ~sect1_loaded.sum{arg i; i.asFloat};
-			tempRevAvg1 = tempRevAvg1 / ~sect1_loaded.size;
-			tempRevAvg1 = tempRevAvg1.linlin(range_min, range_max, 5, 80);
-
-			tempRevAvg2 = ~sect2_loaded.sum{arg i; i.asFloat};
-			tempRevAvg2 = tempRevAvg2 / ~sect2_loaded.size;
-			tempRevAvg2 = tempRevAvg2.linlin(range_min, range_max, 1.3, 5);
-
-
-			// set the computed averages on their fx synths
-			~freqshift_ch.set(
-				\fshift, tempFsAvg,
-				\sp1_amt, sp1_avg,
-				\sp2_amt, sp2_avg,
-				\sp3_amt, sp3_avg,
-				\sp4_amt, sp4_avg,
-			);
-
-			~rev_ch.set(
-				\roomSize, tempRevAvg1, // default is 80
-				\revTime, tempRevAvg2, // default is 5
-				\sp1_amt, sp1_avg,
-				\sp2_amt, sp2_avg,
-				\sp3_amt, sp3_avg,
-				\sp4_amt, sp4_avg,
-			);
-
-			grain_duration = ~res[10..12].collect{
-				arg item, i;
-				item.asFloat.linlin(range_min, range_max, 1, 0.05);
-			};
-			grain_duration = grain_duration.sum / 3;
-
-			ratescale = ~res[23..25].collect{
-				arg item, i;
-				item.asFloat.linlin(range_min, range_max, 0.1, 1);
-			};
-
-			~grain_ch.set(
-				\duration, grain_duration,
-				\ratescale, ratescale,
-				\sp1_amt, sp1_avg,
-				\sp2_amt, sp2_avg,
-				\sp3_amt, sp3_avg,
-				\sp4_amt, sp4_avg,
-			);
-
-*/
-
-
-	~coeff_zero = 2;
-	~roundVal = 0.025;
-		//~dd.();
+	~coeff_lett_multiplier = 2; // num.letters multiplier
+	~roundVal = 0.025; // duration approximation
 
 	~language = "en"; // default language English
-	~lang = "en"; // default language English
+	~lang = ~language;
 
-	~parolaDurate = [];
-	~indici_parola = [];
-	~punct_cache = []; // cache per punteggiatura, così sono messi sempre alla fine della parola, prima dello spazio. è richiesta quando premi spazio, ma viene riempita dai segni di punteggiatura fino a là.
-	~durataLinea = []; // resetta array composito di tutta la riga quando premi invio
+	~word_durations = []; // empty array of word durations
+	~indici_parola = []; // empty array of word sylbs idxs
+	~punct_cache = []; // punctuation cache, to keep punctuation at the end of words, before spacebar.
+	// it's called when space is pressed, but filled up until then
+
+	~durataLinea = []; // whole line array of durations (cleared with enter key)
 	~sideQuest = 0;
-	~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
-	~lista_indici = []; // resetta array sequenza di simboli
+	~sillabe_assegnabili = []; // reset assignable syllables
+	~lista_indici = []; // reset idxs array
 
 	~used_syl = []; // reset list of encountered syllables (each new one is stored once)
 	~assignable_samples = (0..~sounds.size).asSet;
-	~cached_pairs = Dictionary.new(~sounds.size); // reset dictionary
+	~saved_pairs = Dictionary.new(~sounds.size); // reset dictionary
 	"cached pairs dictionary has been restored to default (empty)".postln;
-
 
 	"RESET".postln;
 
@@ -988,11 +622,11 @@ SerialPort.closeAll;
 
 			~switch = switch (keycode) // KEY PARSER
 
-			{49} // BARRA SPAZIATRICE
+			{49} // pressing SPACE BAR
 			{
 				if(~sideQuest==0 && ~currentLine.isNumber.not, {
 
-					~parolaDurate = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
+					~word_durations = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
 					~indici_parola = [];
 
 					// se c'è solo punteggiatura nella cache, sequenziala prima di processare parole
@@ -1051,7 +685,6 @@ SerialPort.closeAll;
 							.reject(_ == $,).reject(_ == $.).reject(_ == $+).reject(_ == $!).reject(_ == $;).reject(_ == $:).reject(_ == $|)
 							.reject(_ == $?).reject(_ == $/).reject(_ == $@).reject(_ == $\t ).reject(_.isNumber).reject(_ == $ )/*.split($-)*/;// dividila in sillabe;
 
-
 							// correct Pyphen string: last syllable always has a fucking additional
 							// character at the end (tried deleting it with reject $\n , $_ , $  , $\t , it doesn't work.
 							// parse the last syllable and remove the last element)
@@ -1059,7 +692,6 @@ SerialPort.closeAll;
 							~sillaba_incriminata.removeAt(~sillaba_incriminata.size-1);
 
 							~currentWord_syllables.postln; // postala sillabazione della parola
-
 							///////////////////////////////////////////////////////////////////////////////////////
 							// per ogni sillaba, fai quanto segue
 							~currentWord_syllables.size.do{
@@ -1068,147 +700,23 @@ SerialPort.closeAll;
 
 								~modeSelector=~mode;
 
-								~sillabaDurate = []; // reset - array di durate (un beat)
+								~syllable_durations = []; // reset - array di durate (un beat)
 								~moltiplica_indice_copie = [];
 
 								// per ogni sillaba (i) segna numero di lettere
-								~lettere_inSillaba = ~currentWord_syllables.at(i).size; // n lettere in sillaba
+								~letters_in_syllable = ~currentWord_syllables.at(i).size; // n lettere in sillaba
 
-								// depending on modeselector, decidi come rappresentare sillabe
-								switchMode = ~modeSelector.value; // local modeSelector proxy
+							// execute mode_parser for each syllable
+							// get a list of idxs and durs based on mode inputted
+							m = ~mode_parser.(~mode, i);
 
-								//>>>>>>>>   		//switch
-								passSwitch = switch (switchMode)
-
-								{0} // Lettera-centrico
-								{
-									// per ogni lettera nella sillaba
-									~lettere_inSillaba.do{ // per ogni lettera, metti in array di durate
-										arg j;
-										~sillabaDurate = ~sillabaDurate.insert(
-											j, (1/(~lettere_inSillaba*~coeff_zero)).round(~roundVal) // QUESTO QUAAAAAAAAAAAAAAAAAAA
-										);
-									};
-									// RICAVA DURATE PER ARRAY DURATE
-
-									if(	// se è ultima istanza, selezionala per durate
-										~sillabaDurate.size === ~lettere_inSillaba,
-										// trasferiscila in parolaDurate
-										{
-											~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
-
-											// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
-											// prepara anche array di buffers
-											// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-											if( // se hai una nuova sillaba..
-												~cached_pairs.keys.asArray
-												.includesEqual(~currentWord_syllables.at(i).asString)
-												.not,
-												{//.. salva una nuova associazione nel dizionario cached_pairs
-
-													// sample picked random from the assignable set
-													~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
-
-													// crea associazione sillaba corrente (nuova)
-													~cached_pairs = ~cached_pairs.put(
-														~currentWord_syllables.at(i).asString,
-														~bingo_sample_num);
-													// finally, remove the random picked sample number from the set of assignable samples;
-													~assignable_samples.remove(~bingo_sample_num);
-													"nuova sillaba aggiunta".postln;
-
-													// operazioni per array buffers:
-													~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-													~moltiplica_indice_copie = Array.fill(
-														~lettere_inSillaba, {~indice_sillaba}
-													);
-													~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-												},
-
-												{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-													if(
-														~cached_pairs.keys.asArray
-														.includesEqual(~currentWord_syllables.at(i).asString),
-														{
-															// stessa roba diocan?
-															~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-															~moltiplica_indice_copie = Array.fill(
-																~lettere_inSillaba, {~indice_sillaba});
-															~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-														},
-														{"uopssss....".postln}
-													);
-												}
-											);
-
-										},
-									);
-								}
-
-								// RICAVA DURATE PER ARRAY DURATE
-
-								{1} // Sillaba-centrico
-								{
-									// essenzialmente mette solo un valore di durata denetro sillabaDurate
-									~sillabaDurate = ~sillabaDurate.add(~lettere_inSillaba*0.125);
-									~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
-									//////////////////////////////////////////////////////////////////////
-
-									// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
-
-									// prepara anche array di buffers
-									// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-									//~now = ~currentWord_syllables.at(i).asString;
-									if( // se hai una nuova sillaba..
-										~cached_pairs.keys.asArray
-										.includesEqual(~currentWord_syllables.at(i).asString)
-										.not,
-										{//.. salva una nuova associazione nel dizionario cached_pairs
-
-											// sample picked random from the assignable set
-											~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
-											// crea associazione sillaba corrente (nuova)
-											~cached_pairs = ~cached_pairs.put(
-												~currentWord_syllables.at(i).asString,
-												~bingo_sample_num);
-											// finally, remove the random picked sample number from the set of assignable samples;
-											~assignable_samples.remove(~bingo_sample_num);
-											"nuova sillaba aggiunta".postln;
-
-											// operazioni per array buffers:
-											~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-											~moltiplica_indice_copie = Array.fill(
-												~lettere_inSillaba, {~indice_sillaba}
-											);
-											~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-										},
-
-										{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-											if(
-												~cached_pairs.keys.asArray
-												.includesEqual(~currentWord_syllables.at(i).asString),
-												{
-													// stessa roba diocan?
-													~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-													~moltiplica_indice_copie = Array.fill(
-														~lettere_inSillaba, {~indice_sillaba});
-													~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-												},
-												{"uopssss....".postln}
-											);
-										}
-									);
-
-
-								}
-								{} {};
 							};
 
 							~sillabe_assegnabili = ~sillabe_assegnabili.add(~indici_parola);
 							~lista_indici = ~sillabe_assegnabili.flatten;
 
 							// infine, aggiungi parola appena emessa dentro la Linea
-							~durataLinea = ~durataLinea.add(~parolaDurate.flatten).flatten;
+							~durataLinea = ~durataLinea.add(~word_durations.flatten).flatten;
 							// sequenza simbolica (sillabe -> simboli a scelta)
 							//~sequence_type_1 = ~lista_indici.linlin(0, ~unique.size, 0, ~folder.entries.size).round.asInteger;
 							~sequence_type_1 = ~lista_indici;
@@ -1227,13 +735,9 @@ SerialPort.closeAll;
 
 			}
 
-			{36} // al premere INVIO
+			{36} // pressing ENTER
 			{
-				//var numeroCorrente;
-				// aggiorna durations alla fine della sequenza di quando premi spazio
-				// e aggiungi eventuali rest (punteggiatura) presente nella cache
 
-				//~durataLinea = ~durataLinea++~punct_cache;
 
 				// update params of interest (why not rate? funziona anche senza?)
 				//~stretch = 60/~tempo*~measure;
@@ -1241,15 +745,23 @@ SerialPort.closeAll;
 				~attack = ~atk.clip(0.01, 4);
 				~tempo = ~bpm;
 
-				if(~lista_indici.isEmpty.not && ~numeroCorrente.isNil.not, {
+
+				if(~lista_indici.isEmpty.not && ~numeroCorrente.isNil.not,
+				{
 					~sequence_type_1 = ~lista_indici;
 					("SEQ "++~numeroCorrente.asString++" : ").post; ~sequence_type_1.postln;
+					if( // if rate hasn't been changed, set it as default, otherwise look at param5
+						(~param5.isNil) || (~rate.isNil),
+						{~rate = 1;
+						~param5 = ~rate},//{~rate = ~param5}
+					);
+				~rate=~param5;
 				});
 
 
 
 				// AGGIUNGI ULTERIORE SWITCH: SE QUANDO PREMI INVIO C'è UN NUMERO,
-				// RINOMINA PDEF PER ACCEDERE A QUEL NUMERO
+				// EXECUTE CORRESPONDING PDEF
 
 				// al premere invio, itera attraverso la riga corrente.
 				// se trova numeri, salva l'ultimo in numeroCorrente
@@ -1301,7 +813,6 @@ SerialPort.closeAll;
 								\rate, Pseq([rate], inf),
 								\out, Pseq([bus], inf),
 							)).play(~clock, quant: stretch);
-
 						}
 						{2}
 						{
@@ -1461,13 +972,12 @@ SerialPort.closeAll;
 				"> > > > EXECUTE "++~numeroCorrente.asString.postln;
 				~punct_cache = []; // svuota cache punteggiatura
 
-
 				~tempo=~bpm;
 				~measure=~division;
 				~stretch = 60/~tempo*~measure;
 				~numSpeakers=(~outs/2)-1;
 
-				~parolaDurate = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
+				~word_durations = []; // reset array di durate (n elementi, uno per sillaba) -> durata parola
 				~indici_parola = [];
 				~punct_cache = [];
 			}
@@ -1477,10 +987,10 @@ SerialPort.closeAll;
 			{
 				if(modifiers==131072,
 					{ // se maiusc, punto e virgola (1/4)
-						~punct_cache = ~punct_cache.add(Rest((1/4)*~fattore_tempo)).flatten;
+						~punct_cache = ~punct_cache.add(Rest((1/4)*~tempo_factor)).flatten;
 					},
 					{ // altrimenti è virgola (1/16)
-						~punct_cache = ~punct_cache.add(Rest((1/16)*~fattore_tempo)).flatten;
+						~punct_cache = ~punct_cache.add(Rest((1/16)*~tempo_factor)).flatten;
 					}
 				);
 			}
@@ -1489,10 +999,10 @@ SerialPort.closeAll;
 			{
 				if(modifiers==131072,
 					{ // se maiusc allora è due punti (1/8)
-						~punct_cache = ~punct_cache.add(Rest((1/8)*~fattore_tempo)).flatten;
+						~punct_cache = ~punct_cache.add(Rest((1/8)*~tempo_factor)).flatten;
 					},
 					{ // altrimenti è punto (1)
-						~punct_cache = ~punct_cache.add(Rest(1*~fattore_tempo)).flatten;
+						~punct_cache = ~punct_cache.add(Rest(1*~tempo_factor)).flatten;
 					}
 				);
 			}
@@ -1500,8 +1010,8 @@ SerialPort.closeAll;
 
 
 
-			{30} // al premere + PLUS) // RESET PHRASE
-			//{42} // al premere + PLUS) // RESET PHRASE
+			//{30} // al premere + PLUS) // RESET PHRASE
+			{42} // al premere + PLUS) // RESET PHRASE
 			{
 				~durataLinea = []; // resetta array composito di tutta la riga quando premi invio
 				~sillabe_assegnabili = []; // resetta array di sillabe assegnabili
@@ -1514,15 +1024,15 @@ SerialPort.closeAll;
 			{nil} {"--".postln}
 
 
-			{27} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
-			//{30} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
+			//{27} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
+			{30} // al premere PUNTO INTERROGATIVO ( maiusc + ' )
 			{
 				if(modifiers == 131072,
 					{
 						"punto interrogativo".postln;
 						~punct_cache = ~punct_cache.add((
 							[1/6, Rest(1/6), 1/6, 1/6, Rest(1/6), 1/6]
-							.flatten)*~fattore_tempo).flatten;
+							.flatten)*~tempo_factor).flatten;
 					},
 
 					{ // al premere solo APOSTROFO ( ' ) // devi riuscire a includere l', degl', dell', un', d', gl
@@ -1538,7 +1048,7 @@ SerialPort.closeAll;
 				if(modifiers == 131072,
 					{
 						"punto esclamativo".postln;
-						~punct_cache = ~punct_cache.add([1/12, 1/12, 1/12]*~fattore_tempo).flatten;
+						~punct_cache = ~punct_cache.add([1/12, 1/12, 1/12]*~tempo_factor).flatten;
 
 					},
 					{/* tasto 1*/}
@@ -1575,8 +1085,8 @@ SerialPort.closeAll;
 				);
 			}
 
-			{10} // al premere tasto | VERTICAL LINE (maiusc + \) // STOP SEQ
-			//{24} // al premere tasto _ UNDERSCORE (maiusc + -) // STOP
+			//{10} // al premere tasto | VERTICAL LINE (maiusc + \) // STOP SEQ
+			{24} // al premere tasto _ UNDERSCORE (maiusc + -) // STOP
 			{
 				if(modifiers == 131072,
 					{
@@ -1658,145 +1168,15 @@ SerialPort.closeAll;
 						/////////////////////////////////////////////////////////
 						// PARAMETER 1: MODE SELECTION
 						// change between mode 0 and 1. updated after +
-						~param1 = switch (~mode.value)
-						{0} // Lettera-centrico
-						{~valore=0;
-							// per ogni lettera nella sillaba
-							~lettere_inSillaba.do{
-								arg j;
-								~sillabaDurate = ~sillabaDurate.insert(
-									j, (1/(~lettere_inSillaba*~coeff_zero)).round(~roundVal));
-							};
-							///////////////////////////////////////////////////////////////////////////////////////
-							// prepara anche array di buffers
-							// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-							if(	// se è ultima istanza, selezionala per durate
-								~sillabaDurate.size === ~lettere_inSillaba,
-								// trasferiscila in parolaDurate
-								{
-									~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
-
-									// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
-
-									// prepara anche array di buffers
-									// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-									if( // se hai una nuova sillaba..
-										~cached_pairs.keys.asArray
-										.includesEqual(~currentWord_syllables.at(i).asString)
-										.not,
-										{//.. salva una nuova associazione nel dizionario cached_pairs
-
-											// sample picked random from the assignable set
-											~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
-
-											// crea associazione sillaba corrente (nuova)
-											~cached_pairs = ~cached_pairs.put(
-												~currentWord_syllables.at(i).asString,
-												~bingo_sample_num);
-											// finally, remove the random picked sample number from the set of assignable samples;
-											~assignable_samples.remove(~bingo_sample_num);
-											"nuova sillaba aggiunta".postln;
-
-											// operazioni per array buffers:
-											~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-											~moltiplica_indice_copie = Array.fill(
-												~lettere_inSillaba, {~indice_sillaba}
-											);
-											~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-										},
-
-										{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-											if(
-												~cached_pairs.keys.asArray
-												.includesEqual(~currentWord_syllables.at(i).asString),
-												{
-													// stessa roba diocan?
-													~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-													~moltiplica_indice_copie = Array.fill(
-														~lettere_inSillaba, {~indice_sillaba});
-													~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-												},
-												{"uopssss....".postln}
-											);
-										}
-									);
-
-								},
-							);
-
-							if(	// se è ultima istanza, selezionala per durate
-								~sillabaDurate.size === ~lettere_inSillaba,
-								// trasferiscila in parolaDurate
-								{
-									~parolaDurate = ~parolaDurate.add(
-										~sillabaDurate*~fattore_tempo)
-								},
-							);
-						}
-
-						{1} // Sillaba-centrico
-						{~valore=1;
-							// essenzialmente mette solo un valore di durata denetro sillabaDurate
-							~sillabaDurate = ~sillabaDurate.add(~lettere_inSillaba*0.125);
-							~parolaDurate = ~parolaDurate.add(~sillabaDurate*~fattore_tempo);
-							//////////////////////////////////////////////////////////////////////
-
-							// CONTROLLA DA ELENCO SILLABE USATE PER ARRAY DI SAMPLES
-
-							// prepara anche array di buffers
-							// checka sillabe all'interno dell'array "unique", per cioccare l'indice
-							//~now = ~currentWord_syllables.at(i).asString;
-							if( // se hai una nuova sillaba..
-								~cached_pairs.keys.asArray
-								.includesEqual(~currentWord_syllables.at(i).asString)
-								.not,
-								{//.. salva una nuova associazione nel dizionario cached_pairs
-
-									// sample picked random from the assignable set
-									~bingo_sample_num = ~assignable_samples.asArray.flatten[~sounds.size.rand];
-									// crea associazione sillaba corrente (nuova)
-									~cached_pairs = ~cached_pairs.put(
-										~currentWord_syllables.at(i).asString,
-										~bingo_sample_num);
-									// finally, remove the random picked sample number from the set of assignable samples;
-									~assignable_samples.remove(~bingo_sample_num);
-									"nuova sillaba aggiunta".postln;
-
-									// operazioni per array buffers:
-									~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-									~moltiplica_indice_copie = Array.fill(
-										~lettere_inSillaba, {~indice_sillaba}
-									);
-									~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-								},
-
-								{ // se invece hai già incontrato quella sillaba, parsa il value corrispondente
-									if(
-										~cached_pairs.keys.asArray
-										.includesEqual(~currentWord_syllables.at(i).asString),
-										{
-											// stessa roba diocan?
-											~indice_sillaba = ~cached_pairs.at(~currentWord_syllables.at(i).asString);
-											~moltiplica_indice_copie = Array.fill(
-												~lettere_inSillaba, {~indice_sillaba});
-											~indici_parola = ~indici_parola.insert(i, ~moltiplica_indice_copie);
-										},
-										{"uopssss....".postln}
-									);
-								}
-							);
-						}
-
-
-						{nil} {"nil param1".postln};
-
+						//~param1 = ~mode_parser.(~mode).do(_.postln);
+						~param1 = ~mode;
 
 						///////////////////////////////////////////////////
 						// PARAMETER 2: FATTORE TEMPO (0-2)
 						~param2 = ~tFact;
-						~fattore_tempo = ~param2.clip(0.1,4);
+						~tempo_factor = ~param2.clip(0.1,4);
 
-						"fattore tempo: "++~fattore_tempo.postln;
+						"fattore tempo: "++~tempo_factor.postln;
 						////////////////////////////////////////////////////
 						// PARAMETER 3: RELEASE BUF PLAYER (0.2 - 5)
 						~param3 = ~rel;
@@ -1851,8 +1231,8 @@ SerialPort.closeAll;
 				);
 			}
 
-			{41} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
-			//{12} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
+			//{41} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
+			{12} // al premere tasto @ (alt + ò) // OPEN EXPRESSION
 			{
 				if(modifiers == 524288,
 					{
