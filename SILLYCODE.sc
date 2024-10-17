@@ -298,17 +298,17 @@
 
 			// add distorsion (insert)
 			sig = Normalizer.ar(input, 0.7, 0.01);
-			dist = InsideOut.ar(input);
+			//dist = InsideOut.ar(input);
 			//ampmap = Amplitude.ar(dist, 0.01, 0.1);
 			// sum
-			sig = ((sig*(1-crushAmt)) + (dist*crushAmt));
+			//sig = ((sig*(1-crushAmt)) + (dist*crushAmt));
 
 			sig = Compander.ar(sig, sig, thresh:0.75, slopeBelow:1.3, slopeAbove:0.4, clampTime:0.13, relaxTime: 0.2);
 
 			// filter eq
 			sig = HPF.ar(sig, lowcut.lag(0.1)); // add lowcut filter
 			sig = LPF.ar(sig, hicut);// add hicut filter
-		//sig = Limiter.ar(sig, 0.65, 0.05);
+			//sig = Limiter.ar(sig, 0.65, 0.05);
 
 			sig = sig * 0.5;
 
