@@ -1,4 +1,4 @@
-~execute.(); // this block has to be executed after the rest
+~execute.(); // this line has to be executed after the rest
 
 ( // FIRST EXECUTE THIS BLOCK (wait until server is booted)
 ~aa = {
